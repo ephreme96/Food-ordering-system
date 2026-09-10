@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Cashier POS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600&family=Noto+Sans+Ethiopic:wght@400;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+* { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+body.lang-am, body.lang-am * { font-family: 'Noto Sans Ethiopic', 'Inter', sans-serif; }
+.mono { font-family: 'JetBrains Mono', monospace; }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 99px; }
+
+/* ── Layout ── */
+body { background: #0d1117; color: #f0f6fc; min-height: 100vh; overflow: hidden; }
+.pos-layout { display: grid; grid-template-columns: 1fr 380px; grid-template-rows: 56px 48px 1fr; height: 100vh; }
+
+/* ── Navbar ── */
+.top-bar { grid-column: 1 / -1; background: #161b22; border-bottom: 1px solid #21262d; display: flex; align-items: center; padding: 0 16px; gap: 12px; }
+
+/* ── Tab bar ── */
+.tab-bar { grid-column: 1 / -1; background: #0d1117; border-bottom: 1px solid #21262d; display: flex; align-items: center; padding: 0 12px; gap: 2px; }
+.tab-btn { padding: 8px 16px; border-radius: 8px 8px 0 0; font-size: 13px; font-weight: 600; color: #8b949e; cursor: pointer; transition: all .15s; border: none; background: none; display: flex; align-items: center; gap: 6px; }
+.tab-btn.active { color: #f0f6fc; background: #161b22; border-top: 2px solid #f97316; }
+.tab-btn:not(.active):hover { color: #e6edf3; background: rgba(255,255,255,.04); }
+
+/* ── Menu panel ── */
+.menu-panel { background: #0d1117; overflow-y: auto; display: flex; flex-direction: column; }
+.category-bar { display: flex; gap: 6px; padding: 10px 12px; overflow-x: auto; flex-shrink: 0; background: #161b22; border-bottom: 1px solid #21262d; }
+.cat-btn { padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; border: 1px solid #30363d; background: transparent; color: #8b949e; transition: all .15s; }
+.cat-btn.active, .cat-btn:hover { background: #f97316; color: #fff; border-color: #f97316; }
+.menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 8px; padding: 10px 12px; }
+.item-card { background: #161b22; border: 1px solid #21262d; border-radius: 10px; padding: 12px; cursor: pointer; transition: all .15s; position: relative; }
+.item-card:hover { border-color: #f97316; background: #1c2128; transform: translateY(-1px); }
+.item-card.unavailable { opacity: .4; pointer-events: none; }
+.item-card .item-name { font-size: 13px; font-weight: 600; color: #e6edf3; line-height: 1.3; margin-bottom: 4px; }
+.item-card .item-price { font-size: 15px; font-weight: 800; color: #f97316; }
+.item-card .item-note { font-size: 10px; color: #f85149; margin-top: 3px; }
+.item-card .item-badge { position: absolute; top: 6px; right: 6px; width: 18px; height: 18px; background: #f97316; border-radius: 50%; font-size: 10px; font-weight: 700; color: white; display: flex; align-items: center; justify-content: center; }
+
+/* ── Order panel ── */
+.order-panel { background: #161b22; border-left: 1px solid #21262d; display: flex; flex-direction: column; overflow: hidden; }
+.order-header { padding: 12px 14px; border-bottom: 1px solid #21262d; flex-shrink: 0; }
+.order-items { flex: 1; overflow-y: auto; padding: 6px 0; }
+.order-line { display: flex; align-items: center; gap: 8px; padding: 7px 14px; transition: background .1s; }
+.order-line:hover { background: rgba(255,255,255,.03); }
+.order-footer { border-top: 1px solid #21262d; padding: 12px 14px; flex-shrink: 0; }
+.qty-btn { width: 24px; height: 24px; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: #e6edf3; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .1s; flex-shrink: 0; }
+.qty-btn:hover { border-color: #f97316; color: #f97316; }
+
+/* ── Payment method tiles ── */
+.pay-method { padding: 8px 12px; border-radius: 8px; border: 1.5px solid #30363d; cursor: pointer; text-align: center; font-size: 12px; font-weight: 700; color: #8b949e; transition: all .15s; background: #0d1117; }
+.pay-method.active { border-color: #f97316; color: #f97316; background: rgba(249,115,22,.08); }
+.pay-method:hover:not(.active) { border-color: #4d555e; color: #e6edf3; }
+
+/* ── Charge button ── */
+.charge-btn { width: 100%; padding: 14px; border-radius: 10px; background: #f97316; border: none; color: white; font-size: 16px; font-weight: 800; cursor: pointer; transition: all .15s; }
+.charge-btn:hover { background: #ea6c0a; transform: translateY(-1px); }
+.charge-btn:active { transform: scale(.98); }
+.charge-btn:disabled { background: #30363d; color: #8b949e; transform: none; cursor: not-allowed; }
+
+/* ── Modals ── */
+.modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.7); backdrop-filter: blur(6px); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.modal-card { background: #161b22; border: 1px solid #30363d; border-radius: 16px; width: 100%; max-width: 440px; max-height: 90vh; overflow-y: auto; }
+
+/* ── Form inputs ── */
+.pos-input { width: 100%; background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 9px 12px; color: #f0f6fc; font-size: 13px; outline: none; transition: border-color .15s; }
+.pos-input:focus { border-color: #f97316; }
+.pos-input::placeholder { color: #484f58; }
+.pos-label { display: block; font-size: 11px; font-weight: 600; color: #8b949e; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 5px; }
+
+/* ── Summary cards ── */
+.stat-card { background: #0d1117; border: 1px solid #21262d; border-radius: 10px; padding: 14px 16px; }
+.stat-value { font-size: 22px; font-weight: 800; }
+.stat-label { font-size: 11px; color: #8b949e; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin-top: 3px; }
+
+/* ── Refund status badges ── */
+.badge-pending   { background: rgba(234,179,8,.15);   color: #facc15; border: 1px solid rgba(234,179,8,.25); }
+.badge-processed { background: rgba(34,197,94,.15);   color: #4ade80; border: 1px solid rgba(34,197,94,.25); }
+.badge-failed    { background: rgba(248,81,73,.15);   color: #f85149; border: 1px solid rgba(248,81,73,.25); }
+
+/* ── Receipt overlay ── */
+@keyframes fadeInScale { from { opacity:0; transform:scale(.95); } to { opacity:1; transform:scale(1); } }
+.receipt-anim { animation: fadeInScale .25s ease; }
+
+/* ── Tab content ── */
+.tab-content { display: none; }
+.tab-content.active { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+
+@media (max-width: 900px) {
+  .pos-layout { grid-template-columns: 1fr; grid-template-rows: 56px 48px 1fr auto; height: auto; overflow: auto; }
+  body { overflow: auto; }
+  .order-panel { border-left: none; border-top: 1px solid #21262d; min-height: 400px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Auth guard -->
+<script>
+(function(){
+  const t = localStorage.getItem('token');
+  const u = JSON.parse(localStorage.getItem('user') || 'null');
+  if (!t || !u || !['cashier','admin'].includes(u.role)) {
+    window.location.href = '/frontend/login.html';
+  }
+})();
+</script>
+
+<div class="pos-layout" id="posLayout">
+
+  <!-- ══ TOP BAR ══ -->
+  <header class="top-bar">
+    <div class="flex items-center gap-2 mr-3">
+      <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background:#f97316;">
+        <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3z"/>
+        </svg>
+      </div>
+      <span class="font-bold text-sm text-white">POS Terminal</span>
+    </div>
+
+    <!-- Today's total -->
+    <div class="flex items-center gap-1.5 bg-green-900/30 border border-green-800/40 rounded-lg px-3 py-1.5">
+      <svg class="w-3.5 h-3.5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <span class="text-xs font-semibold text-green-400" id="todayTotal">Today: ETB 0.00</span>
+    </div>
+    <div class="flex items-center gap-1.5 bg-red-900/30 border border-red-800/40 rounded-lg px-3 py-1.5">
+      <svg class="w-3.5 h-3.5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3m9 14V5a2 2 0 00-2-2H6a2 2 0 00-2 2v16l4-2 2 2 2-2 2 2 2-2 4 2z"/></svg>
+      <span class="text-xs font-semibold text-red-400" id="todayRefunds">Refunds: ETB 0.00</span>
+    </div>
+    <div class="flex items-center gap-1.5 border border-gray-700/60 rounded-lg px-3 py-1.5">
+      <span class="text-xs text-gray-400">Net:</span>
+      <span class="text-xs font-bold text-white" id="todayNet">ETB 0.00</span>
+    </div>
+
+    <div class="ml-auto flex items-center gap-2">
+      <span class="mono text-xs text-gray-500" id="liveClock"></span>
+      <span class="text-xs text-gray-500 bg-gray-800 rounded-lg px-2 py-1" id="cashierName"></span>
+      <a href="/verify" class="text-xs text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 rounded-lg px-2 py-1.5 transition font-medium">Receipt Verify</a>
+      <button onclick="openChangePw()" class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 transition cursor-pointer" title="Change Password">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+      </button>
+      <button onclick="logout()" class="text-xs text-gray-400 hover:text-red-400 bg-gray-800 hover:bg-gray-900 rounded-lg px-2 py-1.5 transition font-medium">Sign Out</button>
+    </div>
+  </header>
+
+  <!-- ══ TAB BAR ══ -->
+  <nav class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('pos', this)" id="tabPos">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01M4 19h16a2 2 0 002-2V7a2 2 0 00-2-2H4a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+      POS
+    </button>
+    <button class="tab-btn" onclick="switchTab('refunds', this)" id="tabRefunds">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3"/></svg>
+      Refunds
+    </button>
+    <button class="tab-btn" onclick="switchTab('summary', this)" id="tabSummary">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+      Cash Flow
+    </button>
+    <button class="tab-btn" onclick="switchTab('pending', this)" id="tabPending">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      Pending <span id="pendingBadge" class="hidden ml-1 bg-orange-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-bold"></span>
+    </button>
+  </nav>
+
+  <!-- ══ TAB: POS ══ -->
+  <div id="content-pos" class="tab-content active" style="display:grid; grid-template-columns: 1fr 380px; overflow:hidden;">
+
+    <!-- Menu panel -->
+    <div class="menu-panel">
+      <div class="category-bar" id="categoryBar">
+        <button class="cat-btn active" onclick="filterCategory('ALL', this)">All</button>
+      </div>
+      <div class="menu-grid" id="menuGrid">
+        <div class="col-span-full text-center py-16 text-gray-500 text-sm">Loading menu…</div>
+      </div>
+    </div>
+
+    <!-- Order panel -->
+    <div class="order-panel">
+      <div class="order-header">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="font-bold text-sm text-white">Current Order</h2>
+          <button onclick="clearOrder()" class="text-xs text-gray-500 hover:text-red-400 transition font-medium cursor-pointer">Clear</button>
+        </div>
+        <input id="customerName" type="text" placeholder="Customer name (optional)" class="pos-input text-xs"/>
+      </div>
+
+      <div class="order-items" id="orderItems">
+        <div id="emptyOrder" class="flex flex-col items-center justify-center h-full py-10 text-gray-600">
+          <svg class="w-10 h-10 mb-2 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+          <p class="text-sm font-medium">No items added</p>
+          <p class="text-xs mt-1">Tap a menu item to add it</p>
+        </div>
+      </div>
+
+      <div class="order-footer">
+        <!-- Totals -->
+        <div class="space-y-1 mb-3 text-sm">
+          <div class="flex justify-between text-gray-400">
+            <span>Subtotal</span>
+            <span class="mono" id="subtotalDisplay">ETB 0.00</span>
+          </div>
+          <div class="flex justify-between text-gray-400">
+            <span>Tax (0%)</span>
+            <span class="mono" id="taxDisplay">ETB 0.00</span>
+          </div>
+          <div class="flex justify-between font-bold text-white text-base border-t border-gray-700 pt-2 mt-1">
+            <span>TOTAL</span>
+            <span class="mono text-orange-400" id="totalDisplay">ETB 0.00</span>
+          </div>
+        </div>
+
+        <!-- Payment method -->
+        <div class="mb-3">
+          <label class="pos-label mb-2">Payment Method</label>
+          <div class="grid grid-cols-3 gap-1.5 mb-1.5">
+            <div class="pay-method active" onclick="selectPayMethod('cash', this)">Cash</div>
+            <div class="pay-method" onclick="selectPayMethod('telebirr', this)">Telebirr</div>
+            <div class="pay-method" onclick="selectPayMethod('cbebirr', this)">CBE Birr</div>
+          </div>
+          <div class="grid grid-cols-2 gap-1.5">
+            <div class="pay-method" onclick="selectPayMethod('bank_transfer', this)">Bank Transfer</div>
+            <div class="pay-method" onclick="selectPayMethod('card', this)">Card</div>
+          </div>
+        </div>
+
+        <!-- Cash tendered / change (shown only for cash) -->
+        <div id="cashSection" class="mb-3 space-y-2">
+          <div>
+            <label class="pos-label">Cash Tendered (ETB)</label>
+            <input id="cashTendered" type="number" min="0" step="1" placeholder="0.00"
+              class="pos-input mono" oninput="calcChange()"/>
+          </div>
+          <!-- Quick amounts -->
+          <div class="flex gap-1.5 flex-wrap">
+            <span class="text-xs text-gray-600 self-center">Quick:</span>
+            <button onclick="quickCash(10)"  class="text-xs px-2 py-1 rounded-md border border-gray-700 text-gray-400 hover:border-orange-500 hover:text-orange-400 transition cursor-pointer">10</button>
+            <button onclick="quickCash(20)"  class="text-xs px-2 py-1 rounded-md border border-gray-700 text-gray-400 hover:border-orange-500 hover:text-orange-400 transition cursor-pointer">20</button>
+            <button onclick="quickCash(50)"  class="text-xs px-2 py-1 rounded-md border border-gray-700 text-gray-400 hover:border-orange-500 hover:text-orange-400 transition cursor-pointer">50</button>
+            <button onclick="quickCash(100)" class="text-xs px-2 py-1 rounded-md border border-gray-700 text-gray-400 hover:border-orange-500 hover:text-orange-400 transition cursor-pointer">100</button>
+            <button onclick="quickCash(200)" class="text-xs px-2 py-1 rounded-md border border-gray-700 text-gray-400 hover:border-orange-500 hover:text-orange-400 transition cursor-pointer">200</button>
+            <button onclick="quickCash(500)" class="text-xs px-2 py-1 rounded-md border border-gray-700 text-gray-400 hover:border-orange-500 hover:text-orange-400 transition cursor-pointer">500</button>
+          </div>
+          <div id="changeDisplay" class="hidden rounded-lg p-2.5 text-center">
+            <p class="text-xs text-gray-500 mb-0.5">Change to Return</p>
+            <p id="changeAmt" class="mono text-xl font-bold text-green-400">ETB 0.00</p>
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="mb-3">
+          <label class="pos-label">Order Notes</label>
+          <textarea id="orderNotes" rows="1" placeholder="Any notes…" class="pos-input text-xs resize-none"></textarea>
+        </div>
+
+        <!-- Charge button -->
+        <button id="chargeBtn" onclick="chargeOrder()" class="charge-btn" disabled>
+          Charge — ETB 0.00
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TAB: REFUNDS ══ -->
+  <div id="content-refunds" class="tab-content col-span-full" style="display:none; overflow-y:auto; padding:16px;">
+    <div class="max-w-3xl mx-auto">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="font-bold text-lg text-white">Issue Refund</h2>
+        <button onclick="loadRefunds()" class="text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded-lg px-3 py-1.5 transition">Refresh List</button>
+      </div>
+
+      <!-- Refund form -->
+      <div class="bg-gray-900/50 border border-gray-800 rounded-xl p-5 mb-6">
+        <div class="grid grid-cols-2 gap-4 mb-4">
+          <div>
+            <label class="pos-label">Order Number</label>
+            <div class="flex gap-2">
+              <input id="refundOrderNo" type="text" placeholder="ORD-XXXXXXXX" class="pos-input flex-1 uppercase" style="text-transform:uppercase"/>
+              <button onclick="lookupRefundOrder()" class="text-xs px-3 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white font-semibold transition cursor-pointer">Look Up</button>
+            </div>
+            <div id="refundOrderPreview" class="hidden mt-2 text-xs text-gray-400 bg-gray-800 rounded-lg px-3 py-2"></div>
+          </div>
+          <div>
+            <label class="pos-label">Refund Amount (ETB)</label>
+            <input id="refundAmount" type="number" min="0.01" step="0.01" placeholder="0.00" class="pos-input mono"/>
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <label class="pos-label">Reason for Refund</label>
+          <input id="refundReason" type="text" placeholder="Wrong order, quality issue, duplicate charge…" class="pos-input"/>
+        </div>
+
+        <div class="mb-4">
+          <label class="pos-label">Refund Method</label>
+          <div class="grid grid-cols-5 gap-2" id="refundMethodGrid">
+            <div class="pay-method active text-xs py-2" onclick="selectRefundMethod('cash', this)">Cash</div>
+            <div class="pay-method text-xs py-2" onclick="selectRefundMethod('telebirr', this)">Telebirr</div>
+            <div class="pay-method text-xs py-2" onclick="selectRefundMethod('cbebirr', this)">CBE Birr</div>
+            <div class="pay-method text-xs py-2" onclick="selectRefundMethod('bank_transfer', this)">Bank</div>
+            <div class="pay-method text-xs py-2" onclick="selectRefundMethod('card', this)">Card</div>
+          </div>
+        </div>
+
+        <!-- Destination details (hidden for cash) -->
+        <div id="refundDestSection" class="hidden mb-4 grid grid-cols-2 gap-3 p-4 rounded-xl border border-gray-700 bg-gray-800/50">
+          <div id="rdBankName" class="hidden">
+            <label class="pos-label">Bank Name</label>
+            <input id="refundBankName" type="text" placeholder="CBE / Awash / Dashen…" class="pos-input"/>
+          </div>
+          <div id="rdAccountNo" class="hidden">
+            <label class="pos-label">Account Number</label>
+            <input id="refundAccountNo" type="text" placeholder="1000123456789" class="pos-input mono"/>
+          </div>
+          <div id="rdAccountName" class="hidden">
+            <label class="pos-label">Account Holder Name</label>
+            <input id="refundAccountName" type="text" placeholder="Full name" class="pos-input"/>
+          </div>
+          <div id="rdPhone" class="hidden">
+            <label class="pos-label">Phone Number</label>
+            <input id="refundPhone" type="tel" placeholder="+251 9xx xxx xxx" class="pos-input"/>
+          </div>
+          <div id="rdCard" class="hidden">
+            <label class="pos-label">Card Last 4 Digits (reference)</label>
+            <input id="refundCard" type="text" maxlength="4" placeholder="1234" class="pos-input mono"/>
+          </div>
+          <div class="col-span-2">
+            <label class="pos-label">Internal Notes</label>
+            <input id="refundNotes" type="text" placeholder="Optional admin note" class="pos-input"/>
+          </div>
+        </div>
+
+        <div id="refundFormError" class="hidden mb-3 text-sm text-red-400 bg-red-900/20 border border-red-800/40 rounded-lg px-3 py-2"></div>
+
+        <button onclick="submitRefund()" id="refundSubmitBtn"
+          class="w-full py-3 rounded-xl font-bold text-sm text-white transition cursor-pointer"
+          style="background:#ef4444;">
+          Issue Refund
+        </button>
+      </div>
+
+      <!-- Refund list -->
+      <h3 class="font-bold text-sm text-gray-300 mb-3">Today's Refunds</h3>
+      <div id="refundList" class="space-y-2">
+        <div class="text-center text-gray-600 text-sm py-6">Loading…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TAB: CASH FLOW SUMMARY ══ -->
+  <div id="content-summary" class="tab-content col-span-full" style="display:none; overflow-y:auto; padding:16px;">
+    <div class="max-w-4xl mx-auto">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="font-bold text-lg text-white">Cash Flow</h2>
+        <div class="flex items-center gap-2">
+          <input id="summaryDate" type="date" class="pos-input text-xs" style="width:auto;" oninput="loadSummary()"/>
+          <button onclick="loadSummary()" class="text-xs px-3 py-1.5 rounded-lg border border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white transition">Refresh</button>
+        </div>
+      </div>
+
+      <!-- KPI row -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6" id="kpiRow">
+        <div class="stat-card"><div class="stat-value text-green-400" id="kpiGross">—</div><div class="stat-label">Gross Revenue</div></div>
+        <div class="stat-card"><div class="stat-value text-red-400"   id="kpiRefunds">—</div><div class="stat-label">Total Refunds</div></div>
+        <div class="stat-card"><div class="stat-value text-white"     id="kpiNet">—</div><div class="stat-label">Net Revenue</div></div>
+        <div class="stat-card"><div class="stat-value text-orange-400" id="kpiOrders">—</div><div class="stat-label">Orders</div></div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        <!-- By payment method -->
+        <div class="bg-gray-900/50 border border-gray-800 rounded-xl p-4">
+          <h3 class="font-bold text-sm text-gray-300 mb-3">By Payment Method</h3>
+          <div id="methodBreakdown" class="space-y-2 text-sm"></div>
+        </div>
+        <!-- Additional stats -->
+        <div class="bg-gray-900/50 border border-gray-800 rounded-xl p-4">
+          <h3 class="font-bold text-sm text-gray-300 mb-3">Session Stats</h3>
+          <div id="sessionStats" class="space-y-2 text-sm"></div>
+        </div>
+      </div>
+
+      <!-- Refunds on that day -->
+      <h3 class="font-bold text-sm text-gray-300 mb-3" id="refundsDayTitle"></h3>
+      <div id="summaryRefunds" class="space-y-2"></div>
+    </div>
+  </div>
+
+  <!-- ══ TAB: PENDING ORDERS ══ -->
+  <div id="content-pending" class="tab-content col-span-full" style="display:none; overflow-y:auto; padding:16px;">
+    <div class="max-w-4xl mx-auto">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="font-bold text-lg text-white">Pending Orders</h2>
+        <button onclick="loadPendingOrders()" class="text-xs px-3 py-1.5 rounded-lg border border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white transition">Refresh</button>
+      </div>
+      <div id="pendingList" class="space-y-3">
+        <div class="text-center text-gray-600 text-sm py-6">Loading…</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end pos-layout -->
+
+
+<!-- ══ ITEM OPTIONS MODAL ══ -->
+<div id="optionsModal" class="modal-bg hidden">
+  <div class="modal-card">
+    <div class="flex items-center justify-between p-4 border-b border-gray-700">
+      <div>
+        <h3 id="optItemName" class="font-bold text-white"></h3>
+        <p id="optItemPrice" class="text-sm text-orange-400 font-semibold mono"></p>
+      </div>
+      <button onclick="closeOptionsModal()" class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-gray-700 cursor-pointer">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div id="optGroups" class="p-4 space-y-5 max-h-64 overflow-y-auto"></div>
+    <div class="flex items-center gap-3 p-4 border-t border-gray-700">
+      <div class="flex items-center gap-2">
+        <button onclick="changeOptQty(-1)" class="qty-btn text-lg">−</button>
+        <span id="optQty" class="mono font-bold text-white w-6 text-center">1</span>
+        <button onclick="changeOptQty(1)"  class="qty-btn text-lg">+</button>
+      </div>
+      <div class="flex-1">
+        <input id="optSpecialInstr" type="text" placeholder="Special instructions…" class="pos-input text-xs"/>
+      </div>
+    </div>
+    <div class="p-4 pt-0">
+      <div class="flex justify-between text-sm mb-3">
+        <span class="text-gray-400">Line Total</span>
+        <span id="optLineTotal" class="mono font-bold text-orange-400"></span>
+      </div>
+      <button onclick="addItemToOrder()" class="charge-btn text-base">Add to Order</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ RECEIPT MODAL ══ -->
+<div id="receiptModal" class="modal-bg hidden">
+  <div class="modal-card receipt-anim" style="max-width:360px;">
+    <div class="p-5 text-center border-b border-gray-700">
+      <div class="w-12 h-12 rounded-full bg-green-900/40 border border-green-700/50 flex items-center justify-center mx-auto mb-3">
+        <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+      </div>
+      <h3 class="font-bold text-lg text-white mb-0.5">Order Charged!</h3>
+      <p class="text-sm text-gray-400" id="rcOrderNo"></p>
+    </div>
+    <div class="p-5 space-y-1 text-sm border-b border-gray-700" id="rcItems"></div>
+    <div class="p-5 space-y-1 text-sm border-b border-gray-700">
+      <div class="flex justify-between text-gray-400"><span>Subtotal</span><span id="rcSubtotal" class="mono"></span></div>
+      <div class="flex justify-between font-bold text-white text-base"><span>Total</span><span id="rcTotal" class="mono text-orange-400"></span></div>
+      <div class="flex justify-between text-gray-400" id="rcChangeRow"><span>Change</span><span id="rcChange" class="mono text-green-400 font-bold"></span></div>
+    </div>
+    <div class="p-4 text-center">
+      <div class="inline-block bg-gray-800 rounded-lg px-4 py-2 mono font-bold text-orange-400 text-sm mb-4" id="rcReceiptCode"></div>
+      <button onclick="closeReceipt()" class="charge-btn text-sm">Next Customer</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ CHANGE PASSWORD MODAL ══ -->
+<div id="changePwModal" class="modal-bg hidden">
+  <div class="modal-card" style="max-width:340px;">
+    <div class="flex items-center justify-between p-4 border-b border-gray-700">
+      <h3 class="font-bold text-white">Change Password</h3>
+      <button onclick="closeChangePw()" class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-white cursor-pointer">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="p-4 space-y-3">
+      <div><label class="pos-label">Current Password</label><input id="cpCurrent" type="password" class="pos-input"/></div>
+      <div><label class="pos-label">New Password</label><input id="cpNew" type="password" class="pos-input"/></div>
+      <div><label class="pos-label">Confirm New Password</label><input id="cpConfirm" type="password" class="pos-input"/></div>
+      <p id="cpError" class="hidden text-xs text-red-400 bg-red-900/20 border border-red-800/30 rounded-lg p-2"></p>
+      <button onclick="submitChangePw()" id="cpBtn" class="charge-btn text-sm">Update Password</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ SCRIPTS ══ -->
+<script>
+const API     = '';
+const token   = localStorage.getItem('token');
+const userObj = JSON.parse(localStorage.getItem('user') || '{}');
+const hdr     = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let allMenuItems    = [];          // full fetched menu
+let currentCategory = 'ALL';
+let cart            = [];          // [{item, qty, customizations, special_instructions}]
+let selectedPayMethod = 'cash';
+let selectedRefundMethod = 'cash';
+let optionItem      = null;        // item being configured in options modal
+let optQty          = 1;
+let selectedOptIds  = {};          // { group_name: [option_id, ...] }
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+document.getElementById('cashierName').textContent = userObj.username || 'cashier';
+document.getElementById('summaryDate').value = new Date().toISOString().slice(0, 10);
+
+// Clock
+setInterval(() => {
+  const now = new Date();
+  document.getElementById('liveClock').textContent =
+    now.toLocaleTimeString('en-ET', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}, 1000);
+
+// Load on start
+loadMenu();
+loadCashFlowHeader();
+loadPendingOrders();
+
+// WebSocket for real-time updates
+const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
+const cashierWs = new WebSocket(`${wsProto}://${location.host}/ws/cashier`);
+cashierWs.onmessage = (e) => {
+  try {
+    const d = JSON.parse(e.data);
+    if (['new_cash_order','payment_confirmed','bank_transfer_claim'].includes(d.event)) {
+      loadPendingOrders();
+      loadCashFlowHeader();
+      showToast(`${d.event.replace(/_/g,' ')}: ${d.order_number || ''}`, '#f97316');
+    }
+  } catch (_) {}
+};
+cashierWs.onclose = () => setTimeout(() => location.reload(), 5000);
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  const tabIds = ['pos','refunds','summary','pending'];
+  tabIds.forEach(id => {
+    const el = document.getElementById(`content-${id}`);
+    if (!el) return;
+    if (id === name) {
+      el.style.display = id === 'pos' ? 'grid' : 'flex';
+      el.classList.add('active');
+    } else {
+      el.style.display = 'none';
+      el.classList.remove('active');
+    }
+  });
+
+  if (name === 'refunds') loadRefunds();
+  if (name === 'summary') loadSummary();
+  if (name === 'pending') loadPendingOrders();
+}
+
+// ── Menu ──────────────────────────────────────────────────────────────────────
+async function loadMenu() {
+  try {
+    const res  = await fetch(`${API}/api/cashier/menu`, { headers: hdr });
+    if (res.status === 401) { logout(); return; }
+    allMenuItems = await res.json();
+    buildCategoryBar();
+    renderMenuGrid('ALL');
+  } catch (e) {
+    document.getElementById('menuGrid').innerHTML =
+      '<div class="col-span-full text-center py-16 text-red-400 text-sm">Failed to load menu. Is the server running?</div>';
+  }
+}
+
+function buildCategoryBar() {
+  const cats = ['ALL', ...new Set(allMenuItems.map(i => i.category))];
+  const bar  = document.getElementById('categoryBar');
+  bar.innerHTML = cats.map(c =>
+    `<button class="cat-btn ${c === 'ALL' ? 'active' : ''}" onclick="filterCategory('${escHtml(c)}', this)">${escHtml(c)}</button>`
+  ).join('');
+}
+
+function filterCategory(cat, btn) {
+  currentCategory = cat;
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderMenuGrid(cat);
+}
+
+function renderMenuGrid(cat) {
+  const grid  = document.getElementById('menuGrid');
+  const items = cat === 'ALL' ? allMenuItems : allMenuItems.filter(i => i.category === cat);
+  if (!items.length) {
+    grid.innerHTML = '<div class="col-span-full text-center py-16 text-gray-600 text-sm">No items in this category</div>';
+    return;
+  }
+  grid.innerHTML = items.map(item => {
+    const inCart = cart.filter(l => l.item.id === item.id).reduce((s, l) => s + l.qty, 0);
+    return `
+    <div class="item-card ${!item.is_available ? 'unavailable' : ''}" onclick="openOptionsModal(${item.id})">
+      ${inCart ? `<div class="item-badge">${inCart}</div>` : ''}
+      <div class="item-name">${escHtml(item.name)}</div>
+      <div class="item-price">ETB ${item.price.toFixed(2)}</div>
+      ${item.cashier_note ? `<div class="item-note">${escHtml(item.cashier_note)}</div>` : ''}
+      ${!item.is_available ? '<div class="item-note">Out of stock</div>' : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── Item Options Modal ────────────────────────────────────────────────────────
+function openOptionsModal(itemId) {
+  optionItem = allMenuItems.find(i => i.id === itemId);
+  if (!optionItem) return;
+  optQty = 1;
+  selectedOptIds = {};
+
+  document.getElementById('optItemName').textContent  = optionItem.name;
+  document.getElementById('optItemPrice').textContent = `ETB ${optionItem.price.toFixed(2)}`;
+  document.getElementById('optQty').textContent       = 1;
+  document.getElementById('optSpecialInstr').value    = '';
+
+  const groupsEl = document.getElementById('optGroups');
+
+  if (!optionItem.option_groups || !optionItem.option_groups.length) {
+    // No options — add directly
+    groupsEl.innerHTML = '<p class="text-center text-gray-500 text-sm py-4">No customisation options</p>';
+  } else {
+    groupsEl.innerHTML = optionItem.option_groups.map(grp => `
+      <div>
+        <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">
+          ${escHtml(grp.group_name)}
+          ${grp.options[0]?.is_required ? '<span class="text-red-400 ml-1">*</span>' : ''}
+        </h4>
+        <div class="space-y-1.5">
+          ${grp.options.map(opt => {
+            const inputType = opt.input_type === 'radio' ? 'radio' : 'checkbox';
+            const name      = `opt_${grp.group_name.replace(/\s+/g,'_')}`;
+            return `
+            <label class="flex items-center gap-2.5 p-2 rounded-lg border border-gray-700 hover:border-orange-500/50 cursor-pointer transition">
+              <input type="${inputType}" name="${name}" value="${opt.id}"
+                ${opt.is_default ? 'checked' : ''}
+                class="accent-orange-500 flex-shrink-0"
+                onchange="syncOptSelection('${escHtml(grp.group_name)}', this)"
+              />
+              <span class="text-sm text-gray-200 flex-1">${escHtml(opt.name)}</span>
+              ${opt.price_delta !== 0 ? `<span class="text-xs mono text-orange-400 font-semibold">${opt.price_delta > 0 ? '+' : ''}ETB ${opt.price_delta.toFixed(2)}</span>` : ''}
+            </label>`;
+          }).join('')}
+        </div>
+      </div>
+    `).join('');
+
+    // Initialise defaults
+    optionItem.option_groups.forEach(grp => {
+      const defaults = grp.options.filter(o => o.is_default).map(o => o.id);
+      if (defaults.length) selectedOptIds[grp.group_name] = defaults;
+    });
+  }
+
+  updateOptLineTotal();
+  document.getElementById('optionsModal').classList.remove('hidden');
+}
+
+function syncOptSelection(groupName, input) {
+  if (input.type === 'radio') {
+    selectedOptIds[groupName] = [parseInt(input.value)];
+  } else {
+    if (!selectedOptIds[groupName]) selectedOptIds[groupName] = [];
+    const id = parseInt(input.value);
+    if (input.checked) {
+      selectedOptIds[groupName].push(id);
+    } else {
+      selectedOptIds[groupName] = selectedOptIds[groupName].filter(x => x !== id);
+    }
+  }
+  updateOptLineTotal();
+}
+
+function updateOptLineTotal() {
+  if (!optionItem) return;
+  let adj = optionItem.price;
+  const allOptIds = Object.values(selectedOptIds).flat();
+  optionItem.option_groups?.forEach(grp => {
+    grp.options.forEach(opt => {
+      if (allOptIds.includes(opt.id)) adj += opt.price_delta;
+    });
+  });
+  const total = adj * optQty;
+  document.getElementById('optLineTotal').textContent = `ETB ${total.toFixed(2)}`;
+}
+
+function changeOptQty(delta) {
+  optQty = Math.max(1, optQty + delta);
+  document.getElementById('optQty').textContent = optQty;
+  updateOptLineTotal();
+}
+
+function addItemToOrder() {
+  if (!optionItem) return;
+  const allOptIds = Object.values(selectedOptIds).flat();
+
+  // Build customisation list for display
+  const customizations = [];
+  let adjPrice = optionItem.price;
+  optionItem.option_groups?.forEach(grp => {
+    grp.options.forEach(opt => {
+      if (allOptIds.includes(opt.id)) {
+        customizations.push({ id: opt.id, name: opt.name, price_delta: opt.price_delta });
+        adjPrice += opt.price_delta;
+      }
+    });
+  });
+
+  cart.push({
+    item:                 optionItem,
+    qty:                  optQty,
+    adjPrice:             round2(adjPrice),
+    customizations,
+    customization_ids:    allOptIds,
+    special_instructions: document.getElementById('optSpecialInstr').value.trim() || null,
+  });
+
+  closeOptionsModal();
+  renderCart();
+  renderMenuGrid(currentCategory);  // refresh badges
+}
+
+function closeOptionsModal() {
+  document.getElementById('optionsModal').classList.add('hidden');
+  optionItem = null;
+}
+
+// ── Cart ──────────────────────────────────────────────────────────────────────
+function renderCart() {
+  const container = document.getElementById('orderItems');
+  const emptyEl   = document.getElementById('emptyOrder');
+
+  if (!cart.length) {
+    container.innerHTML = '';
+    container.appendChild(emptyEl);
+    emptyEl.style.display = 'flex';
+    updateTotals();
+    return;
+  }
+  emptyEl.style.display = 'none';
+
+  container.innerHTML = cart.map((line, idx) => {
+    const custLine = line.customizations.map(c => c.name).join(', ');
+    return `
+    <div class="order-line">
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-semibold text-white leading-tight">${escHtml(line.item.name)}</p>
+        ${custLine ? `<p class="text-xs text-orange-400/80 truncate">${escHtml(custLine)}</p>` : ''}
+        ${line.special_instructions ? `<p class="text-xs text-yellow-400/70 italic truncate">"${escHtml(line.special_instructions)}"</p>` : ''}
+      </div>
+      <div class="flex items-center gap-1.5 flex-shrink-0">
+        <button onclick="changeCartQty(${idx}, -1)" class="qty-btn">−</button>
+        <span class="mono text-sm font-bold text-white w-5 text-center">${line.qty}</span>
+        <button onclick="changeCartQty(${idx},  1)" class="qty-btn">+</button>
+      </div>
+      <div class="text-right flex-shrink-0 w-20">
+        <p class="mono text-sm font-bold text-white">ETB ${(line.adjPrice * line.qty).toFixed(2)}</p>
+        ${line.adjPrice !== line.item.price ? `<p class="mono text-xs text-gray-500">@ ${line.adjPrice.toFixed(2)}</p>` : ''}
+      </div>
+      <button onclick="removeCartLine(${idx})" class="text-gray-600 hover:text-red-400 transition cursor-pointer flex-shrink-0">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>`;
+  }).join('');
+
+  updateTotals();
+}
+
+function changeCartQty(idx, delta) {
+  cart[idx].qty = Math.max(1, cart[idx].qty + delta);
+  renderCart();
+  renderMenuGrid(currentCategory);
+}
+
+function removeCartLine(idx) {
+  cart.splice(idx, 1);
+  renderCart();
+  renderMenuGrid(currentCategory);
+}
+
+function clearOrder() {
+  cart = [];
+  document.getElementById('customerName').value = '';
+  document.getElementById('cashTendered').value  = '';
+  document.getElementById('orderNotes').value    = '';
+  document.getElementById('changeDisplay').classList.add('hidden');
+  renderCart();
+  renderMenuGrid(currentCategory);
+}
+
+function updateTotals() {
+  const subtotal = cart.reduce((s, l) => s + l.adjPrice * l.qty, 0);
+  const tax      = 0;  // tax rate placeholder
+  const total    = round2(subtotal + tax);
+
+  document.getElementById('subtotalDisplay').textContent = `ETB ${subtotal.toFixed(2)}`;
+  document.getElementById('taxDisplay').textContent      = `ETB ${tax.toFixed(2)}`;
+  document.getElementById('totalDisplay').textContent    = `ETB ${total.toFixed(2)}`;
+
+  const chargeBtn = document.getElementById('chargeBtn');
+  chargeBtn.disabled   = cart.length === 0;
+  chargeBtn.textContent = `Charge — ETB ${total.toFixed(2)}`;
+
+  calcChange();
+}
+
+// ── Payment ───────────────────────────────────────────────────────────────────
+function selectPayMethod(method, el) {
+  selectedPayMethod = method;
+  document.querySelectorAll('.pay-method').forEach(e => e.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('cashSection').style.display = method === 'cash' ? 'block' : 'none';
+  calcChange();
+}
+
+function calcChange() {
+  if (selectedPayMethod !== 'cash') return;
+  const total   = cart.reduce((s, l) => s + l.adjPrice * l.qty, 0);
+  const tendered = parseFloat(document.getElementById('cashTendered').value) || 0;
+  const changeEl = document.getElementById('changeDisplay');
+  const amtEl    = document.getElementById('changeAmt');
+  if (tendered > 0) {
+    const change = round2(tendered - total);
+    changeEl.classList.remove('hidden');
+    changeEl.style.background = change >= 0 ? 'rgba(34,197,94,.08)' : 'rgba(248,81,73,.08)';
+    changeEl.style.border     = change >= 0 ? '1px solid rgba(34,197,94,.2)' : '1px solid rgba(248,81,73,.2)';
+    amtEl.textContent    = `ETB ${Math.abs(change).toFixed(2)}`;
+    amtEl.className      = `mono text-xl font-bold ${change >= 0 ? 'text-green-400' : 'text-red-400'}`;
+    if (change < 0) {
+      amtEl.textContent = `Short by ETB ${Math.abs(change).toFixed(2)}`;
+    }
+  } else {
+    changeEl.classList.add('hidden');
+  }
+}
+
+function quickCash(amount) {
+  document.getElementById('cashTendered').value = amount;
+  calcChange();
+}
+
+// ── Charge ────────────────────────────────────────────────────────────────────
+async function chargeOrder() {
+  if (!cart.length) return;
+
+  const total    = round2(cart.reduce((s, l) => s + l.adjPrice * l.qty, 0));
+  const tendered = parseFloat(document.getElementById('cashTendered').value) || null;
+
+  if (selectedPayMethod === 'cash' && tendered !== null && tendered < total) {
+    showToast(`Amount tendered (${tendered.toFixed(2)}) is less than total (${total.toFixed(2)})`, '#ef4444');
+    return;
+  }
+
+  const btn = document.getElementById('chargeBtn');
+  btn.disabled = true;
+  btn.textContent = 'Processing…';
+
+  const payload = {
+    customer_name:   document.getElementById('customerName').value.trim() || 'Walk-in',
+    customer_phone:  null,
+    items:           cart.map(l => ({
+      menu_item_id:         l.item.id,
+      quantity:             l.qty,
+      customization_ids:    l.customization_ids,
+      special_instructions: l.special_instructions,
+    })),
+    payment_method:  selectedPayMethod,
+    amount_tendered: selectedPayMethod === 'cash' ? tendered : null,
+    notes:           document.getElementById('orderNotes').value.trim() || null,
+    tax_rate:        0,
+  };
+
+  try {
+    const res  = await fetch(`${API}/api/cashier/pos/charge`, {
+      method: 'POST', headers: hdr, body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.detail || 'Charge failed', '#ef4444'); return; }
+
+    showReceipt(data);
+    loadCashFlowHeader();
+    clearOrder();
+  } catch (e) {
+    showToast('Network error', '#ef4444');
+  } finally {
+    btn.disabled  = false;
+    updateTotals();
+  }
+}
+
+// ── Receipt ───────────────────────────────────────────────────────────────────
+function showReceipt(data) {
+  document.getElementById('rcOrderNo').textContent   = `Order ${data.order_number}`;
+  document.getElementById('rcSubtotal').textContent  = `ETB ${data.subtotal.toFixed(2)}`;
+  document.getElementById('rcTotal').textContent     = `ETB ${data.total_amount.toFixed(2)}`;
+  document.getElementById('rcReceiptCode').textContent = data.receipt_code;
+
+  const changeRow = document.getElementById('rcChangeRow');
+  if (data.change !== null && data.change !== undefined) {
+    document.getElementById('rcChange').textContent = `ETB ${data.change.toFixed(2)}`;
+    changeRow.style.display = '';
+  } else {
+    changeRow.style.display = 'none';
+  }
+
+  document.getElementById('rcItems').innerHTML = (data.items || []).map(i => `
+    <div class="flex justify-between">
+      <span class="text-gray-300">${escHtml(i.name)} × ${i.quantity}</span>
+      <span class="mono text-gray-300">ETB ${i.subtotal.toFixed(2)}</span>
+    </div>
+  `).join('');
+
+  document.getElementById('receiptModal').classList.remove('hidden');
+}
+
+function closeReceipt() {
+  document.getElementById('receiptModal').classList.add('hidden');
+}
+
+// ── Cash Flow Header ──────────────────────────────────────────────────────────
+async function loadCashFlowHeader() {
+  try {
+    const res  = await fetch(`${API}/api/cashier/cash-flow`, { headers: hdr });
+    if (!res.ok) return;
+    const data = await res.json();
+    document.getElementById('todayTotal').textContent   = `Today: ETB ${data.gross_revenue.toFixed(2)}`;
+    document.getElementById('todayRefunds').textContent = `Refunds: ETB ${data.total_refunds.toFixed(2)}`;
+    document.getElementById('todayNet').textContent     = `ETB ${data.net_revenue.toFixed(2)}`;
+  } catch (_) {}
+}
+
+// ── Cash Flow Summary Tab ─────────────────────────────────────────────────────
+async function loadSummary() {
+  const day = document.getElementById('summaryDate').value || new Date().toISOString().slice(0,10);
+  try {
+    const res  = await fetch(`${API}/api/cashier/cash-flow?day=${day}`, { headers: hdr });
+    const data = await res.json();
+
+    document.getElementById('kpiGross').textContent   = `ETB ${data.gross_revenue.toFixed(2)}`;
+    document.getElementById('kpiRefunds').textContent = `ETB ${data.total_refunds.toFixed(2)}`;
+    document.getElementById('kpiNet').textContent     = `ETB ${data.net_revenue.toFixed(2)}`;
+    document.getElementById('kpiOrders').textContent  = data.order_count;
+
+    document.getElementById('methodBreakdown').innerHTML = (data.by_method || []).length
+      ? data.by_method.map(m => `
+          <div class="flex justify-between items-center">
+            <span class="text-gray-400 capitalize">${m.method.replace('_',' ')}</span>
+            <div class="text-right">
+              <span class="mono font-semibold text-white">ETB ${m.total.toFixed(2)}</span>
+              <span class="text-gray-600 ml-2 text-xs">(${m.count} orders)</span>
+            </div>
+          </div>`)
+        .join('')
+      : '<p class="text-gray-600 text-sm">No orders on this date</p>';
+
+    document.getElementById('sessionStats').innerHTML = `
+      <div class="flex justify-between"><span class="text-gray-400">Orders Placed</span><span class="font-semibold text-white">${data.order_count}</span></div>
+      <div class="flex justify-between"><span class="text-gray-400">Handovers</span><span class="font-semibold text-white">${data.handover_count}</span></div>
+      <div class="flex justify-between"><span class="text-gray-400">Avg Order Value</span><span class="mono font-semibold text-white">ETB ${data.avg_order_value.toFixed(2)}</span></div>
+      <div class="flex justify-between"><span class="text-gray-400">Refunds Issued</span><span class="font-semibold text-white">${data.refund_count}</span></div>
+    `;
+
+    document.getElementById('refundsDayTitle').textContent = `Refunds on ${day}`;
+    document.getElementById('summaryRefunds').innerHTML = (data.refunds || []).length
+      ? data.refunds.map(r => refundCard(r)).join('')
+      : '<p class="text-gray-600 text-sm py-4 text-center">No refunds on this date</p>';
+
+  } catch (e) {
+    document.getElementById('kpiGross').textContent = 'Error';
+  }
+}
+
+// ── Refunds Tab ───────────────────────────────────────────────────────────────
+function selectRefundMethod(method, el) {
+  selectedRefundMethod = method;
+  document.querySelectorAll('#refundMethodGrid .pay-method').forEach(e => e.classList.remove('active'));
+  el.classList.add('active');
+
+  const destSec = document.getElementById('refundDestSection');
+  const bankName   = document.getElementById('rdBankName');
+  const accountNo  = document.getElementById('rdAccountNo');
+  const accountName= document.getElementById('rdAccountName');
+  const phone      = document.getElementById('rdPhone');
+  const card       = document.getElementById('rdCard');
+
+  // Reset
+  [bankName, accountNo, accountName, phone, card].forEach(e => e.classList.add('hidden'));
+
+  if (method === 'cash') {
+    destSec.classList.add('hidden');
+  } else {
+    destSec.classList.remove('hidden');
+    if (method === 'bank_transfer') {
+      bankName.classList.remove('hidden');
+      accountNo.classList.remove('hidden');
+      accountName.classList.remove('hidden');
+    } else if (method === 'telebirr' || method === 'cbebirr') {
+      phone.classList.remove('hidden');
+    } else if (method === 'card') {
+      card.classList.remove('hidden');
+    }
+  }
+}
+
+async function lookupRefundOrder() {
+  const no = document.getElementById('refundOrderNo').value.trim().toUpperCase();
+  const preview = document.getElementById('refundOrderPreview');
+  if (!no) return;
+  try {
+    const res  = await fetch(`${API}/api/orders/track/${no}`);
+    if (!res.ok) { preview.textContent = 'Order not found'; preview.classList.remove('hidden'); return; }
+    const data = await res.json();
+    preview.textContent = `${data.customer_name} — ETB ${data.total_amount.toFixed(2)} — ${data.status}`;
+    preview.classList.remove('hidden');
+    document.getElementById('refundAmount').value = data.total_amount.toFixed(2);
+  } catch (_) {
+    preview.textContent = 'Lookup failed';
+    preview.classList.remove('hidden');
+  }
+}
+
+async function submitRefund() {
+  const orderNo = document.getElementById('refundOrderNo').value.trim().toUpperCase();
+  const amount  = parseFloat(document.getElementById('refundAmount').value);
+  const reason  = document.getElementById('refundReason').value.trim();
+  const errEl   = document.getElementById('refundFormError');
+  errEl.classList.add('hidden');
+
+  if (!orderNo) { errEl.textContent = 'Order number is required'; errEl.classList.remove('hidden'); return; }
+  if (!amount || amount <= 0) { errEl.textContent = 'Enter a valid refund amount'; errEl.classList.remove('hidden'); return; }
+
+  const btn = document.getElementById('refundSubmitBtn');
+  btn.disabled = true; btn.textContent = 'Issuing…';
+
+  const payload = {
+    order_number:      orderNo,
+    amount,
+    reason,
+    refund_method:     selectedRefundMethod,
+    dest_bank_name:    document.getElementById('refundBankName')?.value || null,
+    dest_account_no:   document.getElementById('refundAccountNo')?.value || null,
+    dest_account_name: document.getElementById('refundAccountName')?.value || null,
+    dest_phone:        document.getElementById('refundPhone')?.value || null,
+    dest_card_last4:   document.getElementById('refundCard')?.value || null,
+    notes:             document.getElementById('refundNotes')?.value || null,
+    station_id:        localStorage.getItem('station_id') || 'POS-1',
+  };
+
+  try {
+    const res  = await fetch(`${API}/api/cashier/refunds`, { method:'POST', headers:hdr, body:JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) { errEl.textContent = data.detail || 'Refund failed'; errEl.classList.remove('hidden'); return; }
+    showToast(data.message || 'Refund issued', '#4ade80');
+    // Reset form
+    ['refundOrderNo','refundAmount','refundReason','refundBankName','refundAccountNo',
+     'refundAccountName','refundPhone','refundCard','refundNotes'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.value = '';
+    });
+    document.getElementById('refundOrderPreview').classList.add('hidden');
+    loadRefunds();
+    loadCashFlowHeader();
+  } catch (_) {
+    errEl.textContent = 'Network error';
+    errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Issue Refund';
+  }
+}
+
+async function loadRefunds() {
+  const today = new Date().toISOString().slice(0,10);
+  try {
+    const res  = await fetch(`${API}/api/cashier/refunds?day=${today}`, { headers: hdr });
+    const list = await res.json();
+    const el   = document.getElementById('refundList');
+    el.innerHTML = list.length
+      ? list.map(r => refundCard(r, true)).join('')
+      : '<p class="text-center text-gray-600 text-sm py-6">No refunds today</p>';
+  } catch (_) {}
+}
+
+function refundCard(r, showActions = false) {
+  const statusCls = r.status === 'processed' ? 'badge-processed' : r.status === 'failed' ? 'badge-failed' : 'badge-pending';
+  return `
+  <div class="bg-gray-900/50 border border-gray-800 rounded-xl p-4 flex items-start justify-between gap-3">
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="mono text-xs font-bold text-white">${escHtml(r.order_number)}</span>
+        <span class="inline-block text-xs px-2 py-0.5 rounded-full font-semibold ${statusCls}">${r.status}</span>
+        <span class="text-xs text-gray-500">${r.refund_method?.replace('_',' ')}</span>
+      </div>
+      <p class="mono font-bold text-red-400">− ETB ${r.amount?.toFixed(2)}</p>
+      ${r.reason ? `<p class="text-xs text-gray-500 mt-0.5">${escHtml(r.reason)}</p>` : ''}
+      ${r.dest_account_no  ? `<p class="text-xs text-gray-600 mono">${escHtml(r.dest_bank_name||'')} ${escHtml(r.dest_account_no)}</p>` : ''}
+      ${r.dest_phone       ? `<p class="text-xs text-gray-600">${escHtml(r.dest_phone)}</p>` : ''}
+      <p class="text-xs text-gray-700 mt-1">${r.created_at ? new Date(r.created_at).toLocaleTimeString() : ''}</p>
+    </div>
+    ${showActions && r.status === 'pending' ? `
+      <button onclick="markRefundProcessed(${r.id}, this)"
+        class="text-xs px-3 py-1.5 rounded-lg border border-green-800/50 text-green-400 hover:bg-green-900/20 transition cursor-pointer flex-shrink-0">
+        Mark Sent
+      </button>` : ''}
+  </div>`;
+}
+
+async function markRefundProcessed(id, btn) {
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const res = await fetch(`${API}/api/cashier/refunds/${id}/mark-processed`, { method:'PATCH', headers:hdr });
+    if (res.ok) { showToast('Refund marked as processed', '#4ade80'); loadRefunds(); loadCashFlowHeader(); }
+    else { btn.disabled = false; btn.textContent = 'Mark Sent'; }
+  } catch (_) { btn.disabled = false; btn.textContent = 'Mark Sent'; }
+}
+
+// ── Pending Orders ────────────────────────────────────────────────────────────
+async function loadPendingOrders() {
+  try {
+    const res  = await fetch(`${API}/api/cashier/orders/cash-pending`, { headers: hdr });
+    if (!res.ok) return;
+    const orders = await res.json();
+    const badge  = document.getElementById('pendingBadge');
+
+    if (orders.length) {
+      badge.textContent = orders.length > 9 ? '9+' : orders.length;
+      badge.classList.remove('hidden');
+    } else {
+      badge.classList.add('hidden');
+    }
+
+    const list = document.getElementById('pendingList');
+    list.innerHTML = orders.length
+      ? orders.map(o => `
+          <div class="bg-gray-900/50 border border-gray-800 rounded-xl p-4">
+            <div class="flex items-center justify-between mb-2">
+              <span class="mono font-bold text-white text-sm">${escHtml(o.order_number)}</span>
+              <span class="text-xs text-gray-400">${new Date(o.created_at).toLocaleTimeString()}</span>
+            </div>
+            <p class="text-sm text-gray-300 mb-1">${escHtml(o.customer_name)} · <span class="mono font-bold text-orange-400">ETB ${o.total_amount.toFixed(2)}</span></p>
+            <p class="text-xs text-gray-500 mb-3 capitalize">${o.payment_method?.replace('_',' ')} · ${o.status}</p>
+            <div class="text-xs text-gray-600 mb-3 space-y-0.5">
+              ${(o.items_snapshot||[]).map(i => `<span>${escHtml(i.name)} ×${i.quantity}</span>`).join(' · ')}
+            </div>
+            <button onclick="markCashPaid(${o.id}, this)"
+              class="w-full py-2 rounded-lg font-bold text-sm text-white bg-green-700 hover:bg-green-600 transition cursor-pointer">
+              Confirm Cash Received
+            </button>
+          </div>`)
+        .join('')
+      : '<p class="text-center text-gray-600 text-sm py-8">No pending cash orders</p>';
+  } catch (_) {}
+}
+
+async function markCashPaid(orderId, btn) {
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const res = await fetch(`${API}/api/admin/orders/${orderId}/mark-cash-paid`, { method:'POST', headers:hdr });
+    if (res.ok) { showToast('Cash confirmed!', '#4ade80'); loadPendingOrders(); loadCashFlowHeader(); }
+    else { btn.disabled = false; btn.textContent = 'Confirm Cash Received'; }
+  } catch (_) { btn.disabled = false; btn.textContent = 'Confirm Cash Received'; }
+}
+
+// ── Change Password ───────────────────────────────────────────────────────────
+function openChangePw() {
+  ['cpCurrent','cpNew','cpConfirm'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('cpError').classList.add('hidden');
+  document.getElementById('changePwModal').classList.remove('hidden');
+}
+function closeChangePw() { document.getElementById('changePwModal').classList.add('hidden'); }
+async function submitChangePw() {
+  const c = document.getElementById('cpCurrent').value;
+  const n = document.getElementById('cpNew').value;
+  const cf= document.getElementById('cpConfirm').value;
+  const e = document.getElementById('cpError');
+  e.classList.add('hidden');
+  if (!c||!n||!cf) { e.textContent='All fields required'; e.classList.remove('hidden'); return; }
+  if (n.length < 8) { e.textContent='Min 8 characters'; e.classList.remove('hidden'); return; }
+  if (n !== cf)    { e.textContent='Passwords do not match'; e.classList.remove('hidden'); return; }
+  const btn = document.getElementById('cpBtn');
+  btn.disabled=true; btn.textContent='Saving…';
+  try {
+    const res = await fetch(`${API}/api/auth/change-password`, {
+      method:'PATCH', headers:hdr, body:JSON.stringify({current_password:c, new_password:n})
+    });
+    const data = await res.json();
+    if (res.ok) { closeChangePw(); showToast('Password updated!', '#4ade80'); }
+    else { e.textContent = data.detail||'Failed'; e.classList.remove('hidden'); }
+  } catch(_) { e.textContent='Network error'; e.classList.remove('hidden'); }
+  finally { btn.disabled=false; btn.textContent='Update Password'; }
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+function round2(n) { return Math.round(n * 100) / 100; }
+function escHtml(s) { return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function logout() { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href='/frontend/login.html'; }
+
+function showToast(msg, color = '#161b22') {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = `position:fixed;bottom:20px;right:20px;z-index:999;padding:12px 18px;border-radius:10px;color:#fff;font-size:13px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.4);background:${color};animation:fadeInScale .2s ease;`;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+</script>
+</body>
+</html>

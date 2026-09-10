@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Track Order — Food Ordering</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Ethiopic:wght@400;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    body.lang-am { font-family: 'Noto Sans Ethiopic', 'Inter', sans-serif; }
+
+    /* Step connector line */
+    .step-line { transition: background-color 0.6s ease; }
+
+    /* Pulse animation for active step */
+    @keyframes pulse-ring {
+      0%   { transform: scale(0.8); opacity: 0.8; }
+      100% { transform: scale(1.4); opacity: 0;   }
+    }
+    .pulse-ring::before {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: pulse-ring 1.5s ease-out infinite;
+    }
+
+    /* Slide-in for status banner */
+    @keyframes slide-down {
+      from { transform: translateY(-20px); opacity: 0; }
+      to   { transform: translateY(0);     opacity: 1; }
+    }
+    .slide-down { animation: slide-down 0.4s ease; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .pulse-ring::before, .step-line, .slide-down { animation: none; transition: none; }
+    }
+
+    .lang-toggle { display: flex; gap: 4px; }
+    .lang-toggle button {
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      border: 1.5px solid #d1d5db;
+      background: transparent;
+      cursor: pointer;
+      transition: all 0.15s;
+      color: #374151;
+    }
+    .lang-toggle button.active {
+      background: #1e293b;
+      color: #fff;
+      border-color: #1e293b;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+  <!-- Navbar -->
+  <nav class="bg-white border-b border-gray-200 sticky top-0 z-30">
+    <div class="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2 text-gray-900 font-bold text-lg">
+        <svg class="w-6 h-6 text-orange-500" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+        </svg>
+        <span data-i18n="nav.title">Track Order</span>
+      </a>
+      <div class="lang-toggle">
+        <button id="btnEn" onclick="setLanguage('en')" class="active">EN</button>
+        <button id="btnAm" onclick="setLanguage('am')">አማ</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <main class="max-w-2xl mx-auto px-4 py-8">
+
+    <!-- Order number display -->
+    <div class="text-center mb-8">
+      <p class="text-sm text-gray-500 mb-1" data-i18n="lbl.order_number">Order Number</p>
+      <h1 id="orderNumberDisplay" class="text-3xl font-extrabold text-gray-900 tracking-wide">—</h1>
+    </div>
+
+    <!-- Status tracker card -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+
+      <!-- Steps -->
+      <div id="stepsContainer" class="relative">
+        <!-- Rendered by JS -->
+        <div class="flex justify-center py-12">
+          <div class="w-8 h-8 border-4 border-gray-200 border-t-orange-500 rounded-full animate-spin"></div>
+        </div>
+      </div>
+
+      <!-- Status label -->
+      <div id="statusBanner" class="mt-6 text-center hidden slide-down">
+        <span id="statusBadge" class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold"></span>
+        <p id="statusMessage" class="text-gray-500 text-sm mt-2"></p>
+      </div>
+    </div>
+
+    <!-- Order summary card -->
+    <div id="orderCard" class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6 hidden">
+      <h2 class="font-bold text-gray-800 mb-4" data-i18n="lbl.order_summary">Order Summary</h2>
+      <div id="orderDetails" class="space-y-2 text-sm text-gray-600"></div>
+    </div>
+
+    <!-- Cancelled / Failed -->
+    <div id="errorCard" class="hidden bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
+      <svg class="w-12 h-12 text-red-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      <h3 id="errorTitle" class="font-bold text-red-700 mb-1"></h3>
+      <p id="errorMessage" class="text-red-500 text-sm"></p>
+      <a href="/" class="mt-4 inline-block text-orange-600 font-semibold text-sm hover:underline" data-i18n="btn.new_order">Place New Order</a>
+    </div>
+
+    <!-- Refresh hint -->
+    <p id="refreshHint" class="text-center text-xs text-gray-400 mt-4" data-i18n="hint.live">
+      Updates automatically — no need to refresh
+    </p>
+
+  </main>
+
+  <script>
+  // ─── Translations ────────────────────────────────────────────────────────────
+  const TRANSLATIONS = {
+    en: {
+      'nav.title':        'Track Order',
+      'lbl.order_number': 'Order Number',
+      'lbl.order_summary':'Order Summary',
+      'lbl.customer':     'Customer',
+      'lbl.total':        'Total',
+      'lbl.method':       'Payment',
+      'lbl.items':        'Items',
+      'lbl.placed':       'Placed',
+      'btn.new_order':    'Place New Order',
+      'hint.live':        'Updates automatically — no need to refresh',
+      // Steps
+      'step.placed':      'Order Placed',
+      'step.confirmed':   'Payment Confirmed',
+      'step.preparing':   'Being Prepared',
+      'step.ready':       'Ready for Pickup',
+      'step.collected':   'Collected',
+      // Status messages
+      'msg.PENDING':      'Waiting for payment confirmation…',
+      'msg.CASH_PENDING': 'Your order is queued. Please pay at the counter.',
+      'msg.PAID':         'Payment confirmed! Your food is being prepared.',
+      'msg.PREPARING':    'Our kitchen is working on your order right now.',
+      'msg.READY':        'Your order is ready! Come to the counter to pick it up.',
+      'msg.PICKED_UP':    'Order collected. Enjoy your meal!',
+      'msg.COMPLETED':    'Order completed. Thank you!',
+      'msg.CANCELLED':    'This order has been cancelled.',
+      'msg.FAILED':       'Payment failed. Please try again.',
+      // Error states
+      'err.cancelled':    'Order Cancelled',
+      'err.failed':       'Payment Failed',
+    },
+    am: {
+      'nav.title':        'ትዕዛዝ ክትትል',
+      'lbl.order_number': 'የትዕዛዝ ቁጥር',
+      'lbl.order_summary':'የትዕዛዝ ማጠቃለያ',
+      'lbl.customer':     'ደንበኛ',
+      'lbl.total':        'ጠቅላላ',
+      'lbl.method':       'ክፍያ ዘዴ',
+      'lbl.items':        'ዕቃዎች',
+      'lbl.placed':       'ቀን',
+      'btn.new_order':    'አዲስ ትዕዛዝ',
+      'hint.live':        'ራሱን ይዘምናል — ማደስ አያስፈልግም',
+      'step.placed':      'ትዕዛዝ ተቀብሏል',
+      'step.confirmed':   'ክፍያ ተረጋግጧል',
+      'step.preparing':   'በዝግጅት ላይ',
+      'step.ready':       'ዝግጁ ነው',
+      'step.collected':   'ተረክቧል',
+      'msg.PENDING':      'ክፍያ ማረጋገጫ እየጠበቀ ነው…',
+      'msg.CASH_PENDING': 'ትዕዛዝዎ ተቀምጧል። ካዝናው ጋር ይክፈሉ።',
+      'msg.PAID':         'ክፍያ ተረጋግጧል! ምግብዎ እየተዘጋጀ ነው።',
+      'msg.PREPARING':    'ወጥ ቤቱ ትዕዛዝዎን እያዘጋጀ ነው።',
+      'msg.READY':        'ትዕዛዝዎ ዝግጁ ነው! ካዝናው ዘንድ ሁኑ።',
+      'msg.PICKED_UP':    'ትዕዛዝ ተወስዷል። ይደሰቱ!',
+      'msg.COMPLETED':    'ትዕዛዝ ተጠናቋል። አመሰግናለሁ!',
+      'msg.CANCELLED':    'ይህ ትዕዛዝ ተሰርዟል።',
+      'msg.FAILED':       'ክፍያ አልተሳካም። እንደገና ይሞክሩ።',
+      'err.cancelled':    'ትዕዛዝ ተሰርዟል',
+      'err.failed':       'ክፍያ አልተሳካም',
+    },
+  };
+
+  let currentLang = localStorage.getItem('lang') || 'en';
+
+  function t(key) {
+    return (TRANSLATIONS[currentLang] || TRANSLATIONS.en)[key] || key;
+  }
+
+  function applyTranslations() {
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      el.textContent = t(el.dataset.i18n);
+    });
+    document.body.classList.toggle('lang-am', currentLang === 'am');
+  }
+
+  function setLanguage(lang) {
+    currentLang = lang;
+    localStorage.setItem('lang', lang);
+    document.getElementById('btnEn').classList.toggle('active', lang === 'en');
+    document.getElementById('btnAm').classList.toggle('active', lang === 'am');
+    applyTranslations();
+    renderSteps(currentStep);
+    renderStatusBanner(currentStatus);
+    renderOrderCard(currentOrder);
+  }
+
+  // ─── Step Config ─────────────────────────────────────────────────────────────
+  const STEPS = [
+    { key: 'step.placed',    icon: '📋', iconSvg: true },
+    { key: 'step.confirmed', icon: '💳', iconSvg: true },
+    { key: 'step.preparing', icon: '👨‍🍳', iconSvg: true },
+    { key: 'step.ready',     icon: '🔔', iconSvg: true },
+    { key: 'step.collected', icon: '✅', iconSvg: true },
+  ];
+
+  const STEP_ICONS = [
+    // clipboard
+    `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>`,
+    // credit card
+    `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>`,
+    // chef hat
+    `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>`,
+    // bell
+    `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>`,
+    // check circle
+    `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`,
+  ];
+
+  let currentStep   = -1;
+  let currentStatus = null;
+  let currentOrder  = null;
+
+  function renderSteps(activeStep) {
+    currentStep = activeStep;
+    const container = document.getElementById('stepsContainer');
+    if (activeStep < 0) { container.innerHTML = ''; return; }
+
+    const isComplete = activeStep >= STEPS.length - 1;
+
+    let html = `<div class="flex items-start justify-between gap-0">`;
+
+    STEPS.forEach((step, i) => {
+      const done    = i < activeStep;
+      const active  = i === activeStep;
+      const pending = i > activeStep;
+
+      const circleClass = done    ? 'bg-green-500 text-white border-green-500' :
+                          active  ? 'bg-orange-500 text-white border-orange-500 relative pulse-ring' :
+                                    'bg-white text-gray-300 border-gray-200';
+
+      html += `<div class="flex flex-col items-center flex-1">`;
+
+      // Connector left
+      if (i > 0) {
+        // drawn as part of the previous item's right connector
+      }
+
+      // Circle
+      html += `
+        <div class="relative">
+          <div class="w-10 h-10 rounded-full border-2 flex items-center justify-center ${circleClass} transition-all duration-500">
+            ${STEP_ICONS[i]}
+          </div>
+        </div>
+      `;
+
+      // Label
+      html += `<p class="text-xs mt-2 font-medium text-center leading-tight ${
+        done ? 'text-green-600' : active ? 'text-orange-600' : 'text-gray-400'
+      }">${t(step.key)}</p>`;
+
+      html += `</div>`;
+
+      // Connector line between steps
+      if (i < STEPS.length - 1) {
+        html += `
+          <div class="flex-none flex items-start pt-5">
+            <div class="h-0.5 w-8 step-line ${i < activeStep ? 'bg-green-400' : 'bg-gray-200'}"></div>
+          </div>
+        `;
+      }
+    });
+
+    html += `</div>`;
+    container.innerHTML = html;
+  }
+
+  const STATUS_CONFIG = {
+    PENDING:      { color: 'bg-yellow-100 text-yellow-700',  dot: 'bg-yellow-400' },
+    CASH_PENDING: { color: 'bg-blue-100 text-blue-700',     dot: 'bg-blue-400'   },
+    PAID:         { color: 'bg-green-100 text-green-700',   dot: 'bg-green-400'  },
+    PREPARING:    { color: 'bg-orange-100 text-orange-700', dot: 'bg-orange-400' },
+    READY:        { color: 'bg-purple-100 text-purple-700', dot: 'bg-purple-400' },
+    PICKED_UP:    { color: 'bg-gray-100 text-gray-600',     dot: 'bg-gray-400'   },
+    COMPLETED:    { color: 'bg-gray-100 text-gray-600',     dot: 'bg-gray-400'   },
+    CANCELLED:    { color: 'bg-red-100 text-red-700',       dot: 'bg-red-400'    },
+    FAILED:       { color: 'bg-red-100 text-red-700',       dot: 'bg-red-400'    },
+  };
+
+  function renderStatusBanner(status) {
+    currentStatus = status;
+    if (!status) return;
+    const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.PENDING;
+    const badge = document.getElementById('statusBadge');
+    const msg   = document.getElementById('statusMessage');
+    const banner= document.getElementById('statusBanner');
+
+    badge.className = `inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold ${cfg.color}`;
+    badge.innerHTML = `<span class="w-2 h-2 rounded-full ${cfg.dot}"></span>${status.replace(/_/g, ' ')}`;
+    msg.textContent = t(`msg.${status}`) || '';
+    banner.classList.remove('hidden');
+    banner.classList.add('slide-down');
+  }
+
+  function renderOrderCard(order) {
+    currentOrder = order;
+    if (!order) return;
+    const card    = document.getElementById('orderCard');
+    const details = document.getElementById('orderDetails');
+    card.classList.remove('hidden');
+
+    const methodLabel = {
+      online: 'Chapa / Online', cash: 'Cash', telebirr: 'Telebirr',
+      cbebirr: 'CBE Birr', bank_transfer: 'Bank Transfer',
+    }[order.payment_method] || order.payment_method;
+
+    const placedDate = order.created_at
+      ? new Date(order.created_at).toLocaleString('en-ET', { hour12: false })
+      : '—';
+
+    details.innerHTML = `
+      <div class="flex justify-between">
+        <span class="text-gray-500">${t('lbl.customer')}</span>
+        <span class="font-medium text-gray-900">${order.customer_name}</span>
+      </div>
+      <div class="flex justify-between">
+        <span class="text-gray-500">${t('lbl.items')}</span>
+        <span class="font-medium text-gray-900">${order.items_count} item${order.items_count !== 1 ? 's' : ''}</span>
+      </div>
+      <div class="flex justify-between">
+        <span class="text-gray-500">${t('lbl.method')}</span>
+        <span class="font-medium text-gray-900">${methodLabel}</span>
+      </div>
+      <div class="flex justify-between">
+        <span class="text-gray-500">${t('lbl.placed')}</span>
+        <span class="font-medium text-gray-900">${placedDate}</span>
+      </div>
+      <div class="flex justify-between border-t border-gray-100 pt-2 mt-2">
+        <span class="text-gray-700 font-semibold">${t('lbl.total')}</span>
+        <span class="font-bold text-gray-900 text-base">ETB ${(order.total_amount || 0).toFixed(2)}</span>
+      </div>
+    `;
+  }
+
+  // ─── API polling ─────────────────────────────────────────────────────────────
+  const orderNumber = location.pathname.split('/').pop();
+  let   pollTimer   = null;
+  let   ws          = null;
+  let   wsConnected = false;
+
+  document.getElementById('orderNumberDisplay').textContent = orderNumber;
+
+  const STEP_MAP = {
+    PENDING: 0, CASH_PENDING: 0,
+    PAID: 1, PREPARING: 2, READY: 3, PICKED_UP: 4, COMPLETED: 4,
+  };
+
+  const TERMINAL_STATUSES = new Set(['PICKED_UP', 'COMPLETED', 'CANCELLED', 'FAILED']);
+
+  async function fetchOrder() {
+    try {
+      const resp = await fetch(`/api/orders/track/${orderNumber}`);
+      if (!resp.ok) {
+        if (resp.status === 404) {
+          showError('Order not found', 'The order number in this link could not be found.');
+        }
+        return;
+      }
+      const order = await resp.json();
+      applyOrderData(order);
+    } catch (e) {
+      console.warn('Track fetch error:', e);
+    }
+  }
+
+  function applyOrderData(order) {
+    const status = order.status;
+    const step   = STEP_MAP[status] ?? 0;
+
+    if (status === 'CANCELLED') {
+      showError(t('err.cancelled'), t('msg.CANCELLED'));
+      return;
+    }
+    if (status === 'FAILED') {
+      showError(t('err.failed'), t('msg.FAILED'));
+      return;
+    }
+
+    document.getElementById('errorCard').classList.add('hidden');
+    renderSteps(step);
+    renderStatusBanner(status);
+    renderOrderCard(order);
+
+    // Stop polling when terminal status reached
+    if (TERMINAL_STATUSES.has(status) && pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+      document.getElementById('refreshHint').textContent = '';
+    }
+  }
+
+  function showError(title, message) {
+    document.getElementById('stepsContainer').innerHTML = '';
+    document.getElementById('statusBanner').classList.add('hidden');
+    document.getElementById('orderCard').classList.add('hidden');
+    document.getElementById('errorCard').classList.remove('hidden');
+    document.getElementById('errorTitle').textContent   = title;
+    document.getElementById('errorMessage').textContent = message;
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    if (ws)        { ws.close(); ws = null; }
+  }
+
+  // ─── WebSocket ────────────────────────────────────────────────────────────────
+  function connectWS() {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    ws = new WebSocket(`${proto}://${location.host}/ws/track/${orderNumber}`);
+
+    ws.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.event === 'status_change') {
+          fetchOrder();  // re-fetch to get full order data
+        }
+      } catch (_) {}
+    };
+
+    ws.onclose = () => {
+      wsConnected = false;
+      // Fallback to polling if WS drops
+      if (!pollTimer) {
+        pollTimer = setInterval(fetchOrder, 8000);
+      }
+    };
+
+    ws.onerror = () => { ws.close(); };
+
+    ws.onopen = () => {
+      wsConnected = true;
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+      // Keep-alive ping every 30s
+      setInterval(() => { if (ws && ws.readyState === WebSocket.OPEN) ws.send('ping'); }, 30000);
+    };
+  }
+
+  // ─── Init ─────────────────────────────────────────────────────────────────────
+  applyTranslations();
+  setLanguage(currentLang);
+  fetchOrder();
+  connectWS();
+  // Fallback poll while WS is connecting
+  pollTimer = setInterval(fetchOrder, 8000);
+  </script>
+</body>
+</html>

@@ -1,0 +1,2835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Taste of Ethiopia — Order Online</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&family=Noto+Sans+Ethiopic:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: {
+        fontFamily: {
+          display: ['"Playfair Display"', 'Georgia', 'serif'],
+          sans:    ['"DM Sans"', 'system-ui', 'sans-serif'],
+        },
+        colors: {
+          brand:  { DEFAULT: '#C8102E', dark: '#A00D24', light: '#EF4444' },
+          gold:   { DEFAULT: '#D4A017', light: '#F5D060', dark: '#A87D10' },
+          ink:    '#111111',
+          warm:   '#FFFDF8',
+        }
+      }}
+    }
+  </script>
+  <style>
+    * { font-family: 'DM Sans', system-ui, sans-serif; }
+    h1,h2,h3,.font-display { font-family: 'Playfair Display', Georgia, serif; }
+
+    /* ── Animations ──────────────────────────────────────────── */
+    @keyframes slideUp {
+      from { opacity:0; transform:translateY(24px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    @keyframes fadeIn  { from{opacity:0} to{opacity:1} }
+    @keyframes scaleIn {
+      from { opacity:0; transform:scale(0.95); }
+      to   { opacity:1; transform:scale(1); }
+    }
+    @keyframes floatOrb {
+      0%,100% { transform:translate(0,0) scale(1); }
+      33%     { transform:translate(18px,-22px) scale(1.06); }
+      66%     { transform:translate(-12px,12px) scale(0.96); }
+    }
+    @keyframes shimmer {
+      0%   { background-position:-200% 0; }
+      100% { background-position:200% 0; }
+    }
+    @keyframes pointsPop {
+      0%   { transform:scale(0.8); opacity:0; }
+      60%  { transform:scale(1.1); }
+      100% { transform:scale(1); opacity:1; }
+    }
+
+    .anim-1 { animation:slideUp .6s cubic-bezier(.16,1,.3,1) both; }
+    .anim-2 { animation:slideUp .6s .08s cubic-bezier(.16,1,.3,1) both; }
+    .anim-3 { animation:slideUp .6s .16s cubic-bezier(.16,1,.3,1) both; }
+    .anim-4 { animation:slideUp .6s .24s cubic-bezier(.16,1,.3,1) both; }
+    .fade-in { animation:fadeIn .35s ease both; }
+    .scale-in { animation:scaleIn .3s cubic-bezier(.16,1,.3,1) both; }
+    .orb   { animation:floatOrb 14s ease-in-out infinite; }
+    .orb-2 { animation:floatOrb 18s 4s ease-in-out infinite; }
+    .orb-3 { animation:floatOrb 11s 7s ease-in-out infinite; }
+    .points-pop { animation:pointsPop .5s cubic-bezier(.16,1,.3,1) both; }
+
+    /* ── Skeleton shimmer ──────────────────────────────────────── */
+    .skeleton {
+      background: linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+    }
+
+    /* ── Navbar ────────────────────────────────────────────────── */
+    #navbar {
+      transition: background .3s ease, box-shadow .3s ease;
+    }
+    #navbar.scrolled {
+      background: rgba(255,255,255,.97) !important;
+      box-shadow: 0 1px 12px rgba(0,0,0,.08);
+    }
+
+    /* ── Category pills ────────────────────────────────────────── */
+    .cat-btn {
+      transition: all .2s ease;
+      cursor: pointer;
+      white-space: nowrap;
+      font-weight: 600;
+      border-radius: 999px;
+    }
+    .cat-btn.active {
+      background: #C8102E;
+      color: white;
+      border-color: #C8102E;
+      box-shadow: 0 4px 14px rgba(200,16,46,.28);
+    }
+    .cat-btn:not(.active):hover {
+      border-color: #C8102E;
+      color: #C8102E;
+    }
+
+    /* ── Menu card ─────────────────────────────────────────────── */
+    .menu-card {
+      transition: transform .22s cubic-bezier(.16,1,.3,1), box-shadow .22s ease;
+      cursor: default;
+    }
+    .menu-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 20px 48px rgba(0,0,0,.12);
+    }
+
+    /* ── Cart ──────────────────────────────────────────────────── */
+    #cartPanel { transition: transform .35s cubic-bezier(.16,1,.3,1); }
+
+    /* ── Buttons ───────────────────────────────────────────────── */
+    .btn { transition:all .15s ease; cursor:pointer; }
+    .btn:hover   { transform:translateY(-1px); }
+    .btn:active  { transform:scale(.97) translateY(0); }
+    .btn:disabled{ opacity:.5; cursor:not-allowed; transform:none; }
+
+    /* ── Star rating ───────────────────────────────────────────── */
+    .star-input label { cursor:pointer; transition:color .15s; }
+    .star-input input:checked ~ label,
+    .star-input label:hover,
+    .star-input label:hover ~ label { color:#D4A017; }
+
+    /* ── Loyalty progress bar ──────────────────────────────────── */
+    .loyalty-bar-fill {
+      transition: width 1s cubic-bezier(.16,1,.3,1);
+      background: linear-gradient(90deg, #D4A017, #F5D060);
+    }
+
+    /* ── Scrollbar hide ────────────────────────────────────────── */
+    .scrollbar-hide::-webkit-scrollbar { display:none; }
+    .scrollbar-hide { -ms-overflow-style:none; scrollbar-width:none; }
+
+    /* ── Ingredient option labels ──────────────────────────────── */
+    .ing-option-label {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: .7rem 1rem; border-radius: .75rem; cursor: pointer;
+      transition: background .15s, border-color .15s;
+      border: 1px solid #1e1e1e; background: #111;
+    }
+    .ing-option-label:hover { background: #1a1a1a; border-color: #333; }
+    .ing-option-label.selected { border-color: rgba(200,16,46,.5); background: rgba(200,16,46,.07); }
+
+    /* ── Toggle switch (for included ingredients) ──────────────── */
+    .ing-toggle-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: .6rem .9rem; border-radius: .75rem;
+      transition: background .15s, opacity .2s;
+      border: 1px solid #1e1e1e; background: #111;
+    }
+    .ing-toggle-row.removed {
+      opacity: .45;
+      border-color: #2a1a1a;
+      background: #140a0a;
+      text-decoration: line-through;
+    }
+    .ing-toggle-switch {
+      position: relative; display: inline-block; width: 38px; height: 22px; flex-shrink: 0;
+    }
+    .ing-toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .ing-toggle-slider {
+      position: absolute; inset: 0; cursor: pointer;
+      background: #2a2a2a; border-radius: 999px;
+      transition: background .2s;
+    }
+    .ing-toggle-slider:before {
+      content: ''; position: absolute;
+      width: 16px; height: 16px; border-radius: 50%; background: #666;
+      left: 3px; bottom: 3px; transition: transform .2s, background .2s;
+    }
+    .ing-toggle-switch input:checked + .ing-toggle-slider { background: rgba(200,16,46,.35); }
+    .ing-toggle-switch input:checked + .ing-toggle-slider:before {
+      transform: translateX(16px); background: #C8102E;
+    }
+
+    /* ── Special instructions textarea ─────────────────────────── */
+    .ing-special-textarea {
+      width: 100%; padding: .7rem .9rem; border-radius: .75rem;
+      border: 1px solid #1e1e1e; background: #111; color: #fff;
+      font-size: .875rem; resize: none; outline: none;
+      transition: border-color .15s;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .ing-special-textarea:focus { border-color: rgba(200,16,46,.5); }
+    .ing-special-textarea::placeholder { color: rgba(255,255,255,.2); }
+
+    /* ── Reduced motion ────────────────────────────────────────── */
+    @media (prefers-reduced-motion:reduce) {
+      *,::before,::after { animation-duration:.01ms !important; transition-duration:.01ms !important; }
+    }
+
+    /* ── Amharic / Ethiopic font override ──────────────────────── */
+    body.lang-am,
+    body.lang-am button,
+    body.lang-am input,
+    body.lang-am textarea,
+    body.lang-am select,
+    body.lang-am label,
+    body.lang-am p,
+    body.lang-am span {
+      font-family: 'Noto Sans Ethiopic', system-ui, sans-serif !important;
+    }
+    body.lang-am h1,
+    body.lang-am h2,
+    body.lang-am h3,
+    body.lang-am .font-display {
+      font-family: 'Noto Sans Ethiopic', system-ui, sans-serif !important;
+      letter-spacing: 0 !important;
+    }
+
+    /* ── Language toggle pill ───────────────────────────────────── */
+    .lang-toggle {
+      display: flex;
+      align-items: center;
+      background: rgba(255,255,255,.1);
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 999px;
+      overflow: hidden;
+      font-size: .7rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    #navbar.scrolled .lang-toggle {
+      background: rgba(0,0,0,.07);
+      border-color: rgba(0,0,0,.12);
+    }
+    .lang-toggle span {
+      padding: .3rem .65rem;
+      transition: background .15s, color .15s;
+      color: rgba(255,255,255,.55);
+      cursor: pointer;
+      user-select: none;
+    }
+    #navbar.scrolled .lang-toggle span { color: rgba(0,0,0,.4); }
+    .lang-toggle span.active {
+      background: #C8102E;
+      color: #fff;
+      border-radius: 999px;
+    }
+  </style>
+</head>
+<body style="background:#FFFDF8; min-height:100vh;">
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- NAVBAR                                                                    -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<nav id="navbar" class="fixed top-0 inset-x-0 z-40" style="background:transparent;">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+
+    <!-- Brand -->
+    <a href="#" class="flex items-center gap-2.5 anim-1">
+      <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style="background:#C8102E;">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z"/>
+        </svg>
+      </div>
+      <div>
+        <p class="font-display font-bold text-white text-sm leading-tight" id="brandName">Taste of Ethiopia</p>
+        <p class="text-xs font-medium" style="color:rgba(255,255,255,.5);" data-i18n="nav.tagline">Online Ordering</p>
+      </div>
+    </a>
+
+    <!-- Right controls -->
+    <div class="flex items-center gap-2 sm:gap-3 anim-1">
+      <!-- Language toggle -->
+      <div class="lang-toggle" role="group" aria-label="Language selector">
+        <span id="langEN" class="active" onclick="setLanguage('en')">EN</span>
+        <span id="langAM" onclick="setLanguage('am')">አማ</span>
+      </div>
+      <!-- Loyalty badge (visible once identifier stored) -->
+      <button id="loyaltyBadge" onclick="openLoyaltyPanel()" class="hidden btn items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold" style="background:rgba(212,160,23,.15); color:#D4A017; border:1px solid rgba(212,160,23,.3);">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+        <span id="loyaltyBadgeText">0 pts</span>
+      </button>
+      <a href="/frontend/login.html" class="hidden sm:inline-flex items-center text-sm font-medium px-3 py-1.5 rounded-lg transition-colors" style="color:rgba(255,255,255,.7);" id="staffLoginLink" data-i18n="nav.staff_login">Staff Login</a>
+      <!-- Cart button -->
+      <button onclick="toggleCart()" class="btn relative flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm text-white" style="background:#C8102E; box-shadow:0 4px 16px rgba(200,16,46,.3);">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+        </svg>
+        <span class="hidden sm:inline" data-i18n="nav.cart">Cart</span>
+        <span id="cartBadge" class="hidden absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center text-white" style="background:#D4A017;">0</span>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- HERO                                                                      -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<section class="relative overflow-hidden" style="background:#0D0D0D; min-height:520px;">
+  <!-- Color orbs -->
+  <div class="orb   absolute top-[-80px] left-[-60px]  w-96 h-96 rounded-full pointer-events-none" style="background:radial-gradient(circle,rgba(22,163,74,.2) 0%,transparent 65%);"></div>
+  <div class="orb-2 absolute top-[40px]  left-[35%]    w-72 h-72 rounded-full pointer-events-none" style="background:radial-gradient(circle,rgba(212,160,23,.16) 0%,transparent 65%);"></div>
+  <div class="orb-3 absolute top-[-30px] right-[-40px] w-80 h-80 rounded-full pointer-events-none" style="background:radial-gradient(circle,rgba(200,16,46,.18) 0%,transparent 65%);"></div>
+  <!-- Grain texture overlay -->
+  <div class="absolute inset-0 pointer-events-none" style="background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.9%22 numOctaves=%224%22/><feColorMatrix type=%22saturate%22 values=%220%22/></filter><rect width=%22200%22 height=%22200%22 filter=%22url(%23n)%22 opacity=%220.04%22/></svg>'); opacity:.6;"></div>
+
+  <div class="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 pt-32 pb-20">
+    <div class="max-w-2xl">
+      <!-- Flag dots + label -->
+      <div class="flex items-center gap-2 mb-6 anim-1">
+        <span class="w-2.5 h-2.5 rounded-full" style="background:#16A34A;"></span>
+        <span class="w-2.5 h-2.5 rounded-full" style="background:#D4A017;"></span>
+        <span class="w-2.5 h-2.5 rounded-full" style="background:#C8102E;"></span>
+        <span class="text-xs font-bold tracking-[.2em] uppercase ml-1" style="color:rgba(255,255,255,.4);" data-i18n="hero.badge">Fresh Wok-Fried Chaofan</span>
+      </div>
+
+      <!-- Main heading -->
+      <h1 class="font-display font-black text-white leading-none mb-5 anim-2" style="font-size:clamp(2.8rem,7vw,5.5rem); letter-spacing:-.02em;">
+        <span data-i18n="hero.title_line1">Order Fresh,</span><br/>
+        <span style="color:#C8102E;" data-i18n="hero.title_line2">Eat Well.</span>
+      </h1>
+
+      <!-- Sub -->
+      <p class="text-lg font-medium mb-8 anim-3" style="color:rgba(255,255,255,.55); max-width:42ch; line-height:1.65;" data-i18n="hero.subtitle">
+        Sizzling chaofan made to order in the wok. Order online and pick up when it's ready — no wait, no rush.
+      </p>
+
+      <!-- CTAs -->
+      <div class="flex flex-wrap gap-3 anim-4">
+        <a href="#menu" onclick="smoothScrollToMenu(event)"
+          class="btn inline-flex items-center gap-2 px-7 py-3.5 rounded-xl font-bold text-white text-sm" style="background:#C8102E; box-shadow:0 6px 24px rgba(200,16,46,.35);">
+          <span data-i18n="hero.order_now">Order Now</span>
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+        </a>
+        <a href="#reviews" onclick="smoothScrollToSection('reviews',event)"
+          class="btn inline-flex items-center gap-2 px-7 py-3.5 rounded-xl font-semibold text-sm" style="background:rgba(255,255,255,.06); color:rgba(255,255,255,.8); border:1px solid rgba(255,255,255,.12);">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+          <span id="heroRatingText" data-i18n="hero.see_reviews">See Reviews</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom fade -->
+  <div class="absolute bottom-0 inset-x-0 h-16 pointer-events-none" style="background:linear-gradient(to bottom,transparent,#FFFDF8);"></div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- LOYALTY STRIP                                                             -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div id="loyaltyStrip" class="border-b" style="background:#111111; border-color:#222;">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-3">
+    <div class="flex items-center gap-3">
+      <div class="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style="background:#D4A017;">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-black" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+      </div>
+      <div>
+        <p class="text-sm font-bold text-white" data-i18n="strip.title">Loyalty Rewards</p>
+        <p class="text-xs" style="color:rgba(255,255,255,.5);" data-i18n="strip.subtitle">Earn 1 pt per ETB 10 spent · Redeem for free items</p>
+      </div>
+    </div>
+    <button onclick="openLoyaltyPanel()" class="btn text-xs font-bold px-4 py-1.5 rounded-full" style="background:#D4A017; color:#111;" data-i18n="strip.cta">
+      Check My Points
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- MENU SECTION                                                              -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<section id="menu" class="max-w-6xl mx-auto px-4 sm:px-6 pt-10 pb-16">
+  <div class="flex items-end justify-between mb-6">
+    <div>
+      <p class="text-xs font-bold uppercase tracking-widest mb-1" style="color:#C8102E;" data-i18n="menu.eyebrow">Our Menu</p>
+      <h2 class="font-display font-bold text-ink" style="font-size:clamp(1.6rem,3vw,2.4rem);" data-i18n="menu.heading">Pick Your Favourites</h2>
+    </div>
+    <p class="text-sm text-gray-400 hidden sm:block" id="menuItemCount"></p>
+  </div>
+
+  <!-- Sticky category bar -->
+  <div class="sticky top-[64px] z-20 -mx-4 px-4 sm:-mx-6 sm:px-6 py-3 mb-6 scrollbar-hide" style="background:#FFFDF8;">
+    <div id="categoryBar" class="flex gap-2 overflow-x-auto scrollbar-hide">
+      <button class="cat-btn active px-4 py-2 border border-gray-200 bg-white text-sm text-gray-600" data-cat="" data-i18n="menu.all">
+        All Items
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading skeletons -->
+  <div id="loadingSkeleton" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+    <div class="skeleton rounded-2xl h-64"></div>
+    <div class="skeleton rounded-2xl h-64"></div>
+    <div class="skeleton rounded-2xl h-64"></div>
+    <div class="skeleton rounded-2xl h-64"></div>
+  </div>
+
+  <!-- Menu Grid -->
+  <div id="menuGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"></div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- HOW IT WORKS                                                              -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<section style="background:#111111; border-top:1px solid #1e1e1e; border-bottom:1px solid #1e1e1e;" class="py-14">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6">
+    <p class="text-xs font-bold uppercase tracking-widest text-center mb-2" style="color:#D4A017;" data-i18n="how.eyebrow">Simple &amp; Fast</p>
+    <h2 class="font-display font-bold text-white text-center text-2xl sm:text-3xl mb-10" data-i18n="how.heading">How It Works</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+      <div class="text-center">
+        <div class="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style="background:#C8102E;">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0118 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/></svg>
+        </div>
+        <p class="font-bold text-white mb-1" data-i18n="how.step1_title">1. Browse the Menu</p>
+        <p class="text-sm" style="color:rgba(255,255,255,.45);" data-i18n="how.step1_desc">Explore traditional dishes and add favourites to your cart</p>
+      </div>
+      <div class="text-center">
+        <div class="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style="background:#D4A017;">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+        </div>
+        <p class="font-bold text-white mb-1" data-i18n="how.step2_title">2. Pay Securely</p>
+        <p class="text-sm" style="color:rgba(255,255,255,.45);" data-i18n="how.step2_desc">Online via Chapa / Telebirr or cash at pickup</p>
+      </div>
+      <div class="text-center">
+        <div class="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style="background:#16A34A;">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+        </div>
+        <p class="font-bold text-white mb-1" data-i18n="how.step3_title">3. Pick Up &amp; Enjoy</p>
+        <p class="text-sm" style="color:rgba(255,255,255,.45);" data-i18n="how.step3_desc">Show your receipt code and get your freshly made food</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- REVIEWS SECTION                                                           -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<section id="reviews" class="py-16 max-w-6xl mx-auto px-4 sm:px-6">
+  <div class="flex flex-wrap items-end justify-between gap-4 mb-8">
+    <div>
+      <p class="text-xs font-bold uppercase tracking-widest mb-1" style="color:#C8102E;" data-i18n="reviews.eyebrow">Customer Reviews</p>
+      <h2 class="font-display font-bold text-ink" style="font-size:clamp(1.6rem,3vw,2.4rem);" data-i18n="reviews.heading">What People Say</h2>
+      <div class="flex items-center gap-2 mt-2">
+        <div class="flex" id="avgStars"></div>
+        <span class="text-sm font-bold text-gray-700" id="avgRatingText"></span>
+      </div>
+    </div>
+    <button onclick="openReviewModal()" class="btn flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white" style="background:#C8102E;">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+      <span data-i18n="reviews.write_btn">Write a Review</span>
+    </button>
+  </div>
+
+  <!-- Reviews grid -->
+  <div id="reviewsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+    <div class="skeleton rounded-2xl h-36"></div>
+    <div class="skeleton rounded-2xl h-36"></div>
+    <div class="skeleton rounded-2xl h-36"></div>
+  </div>
+  <div id="reviewsEmpty" class="hidden text-center py-14 text-gray-400">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-3 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+    <p class="font-semibold text-gray-500" data-i18n="reviews.empty">No reviews yet. Be the first!</p>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- FOOTER                                                                    -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<footer style="background:#111111; border-top:1px solid #1e1e1e;" class="py-10">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+    <div class="flex items-center gap-2.5">
+      <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:#C8102E;">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"/></svg>
+      </div>
+      <span class="font-display font-bold text-white text-sm">Taste of Ethiopia</span>
+    </div>
+    <p class="text-xs" style="color:rgba(255,255,255,.3);" data-i18n="footer.copy">© 2025 Taste of Ethiopia · All rights reserved</p>
+    <a href="/frontend/login.html" class="text-xs font-medium" style="color:rgba(255,255,255,.3);" data-i18n="nav.staff_login">Staff Login</a>
+  </div>
+</footer>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- CART SIDE PANEL                                                           -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div id="cartOverlay" onclick="toggleCart()" class="hidden fixed inset-0 z-40" style="background:rgba(0,0,0,.5); backdrop-filter:blur(4px);"></div>
+<div id="cartPanel" class="fixed top-0 right-0 h-full w-full max-w-sm z-50 flex flex-col translate-x-full shadow-2xl" style="background:#FFFDF8;">
+  <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+    <div>
+      <h2 class="font-display font-bold text-ink text-lg" data-i18n="cart.title">Your Cart</h2>
+      <p class="text-xs text-gray-400 mt-0.5" id="cartPointsPreview"></p>
+    </div>
+    <button onclick="toggleCart()" class="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-gray-100 transition-colors cursor-pointer text-gray-400 hover:text-gray-700">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div id="cartItems" class="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+    <p id="cartEmpty" class="text-center text-gray-400 mt-10 text-sm" data-i18n="cart.empty">Your cart is empty</p>
+  </div>
+  <div class="border-t border-gray-100 px-5 py-5" style="background:#FFFDF8;">
+    <div class="flex justify-between font-display font-bold text-ink text-lg mb-4">
+      <span data-i18n="cart.total">Total</span>
+      <span id="cartTotal">ETB 0.00</span>
+    </div>
+    <button onclick="openCheckout()" id="checkoutBtn" disabled
+      class="btn w-full font-bold py-3.5 rounded-xl text-sm text-white disabled:opacity-40 disabled:cursor-not-allowed" style="background:#C8102E; box-shadow:0 6px 20px rgba(200,16,46,.3);">
+      <span data-i18n="cart.checkout">Proceed to Checkout</span>
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- CHECKOUT MODAL                                                            -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div id="checkoutModal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style="background:rgba(0,0,0,.55);">
+  <div class="rounded-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto shadow-2xl scale-in" style="background:#FFFDF8;">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 rounded-t-2xl" style="background:#FFFDF8;">
+      <div>
+        <h2 class="font-display font-bold text-ink text-lg" data-i18n="checkout.title">Checkout</h2>
+        <p class="text-xs text-gray-400 mt-0.5" id="checkoutPointsEarn"></p>
+      </div>
+      <button onclick="closeCheckout()" class="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-gray-100 transition-colors cursor-pointer text-gray-400">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="p-6 space-y-5">
+      <!-- Order summary -->
+      <div class="rounded-xl p-4 border border-gray-100" style="background:#f9f7f4;">
+        <p class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2" data-i18n="checkout.summary">Order Summary</p>
+        <div id="checkoutSummary" class="space-y-1.5 text-sm text-gray-700"></div>
+        <div class="border-t border-gray-200 mt-2.5 pt-2.5 flex justify-between font-bold text-ink">
+          <span data-i18n="cart.total">Total</span><span id="checkoutTotal">ETB 0.00</span>
+        </div>
+      </div>
+
+      <!-- Customer info -->
+      <div class="space-y-3.5">
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1.5" data-i18n="checkout.name_label">Full Name *</label>
+          <input id="custName" type="text" required placeholder="Abebe Girma" maxlength="150" data-i18n-placeholder="checkout.name_ph"
+            class="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none transition focus:border-gray-400 focus:ring-2 focus:ring-gray-200" style="background:#fff;"/>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1.5" data-i18n="checkout.phone_label">Phone Number</label>
+          <input id="custPhone" type="tel" inputmode="tel" placeholder="+251 9xx xxx xxx" maxlength="30"
+            class="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none transition focus:border-gray-400 focus:ring-2 focus:ring-gray-200" style="background:#fff;"/>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1.5">
+            <span data-i18n="checkout.email_label">Email</span>
+            <span class="font-normal text-gray-400" data-i18n="checkout.email_note">(required for online pay)</span>
+          </label>
+          <input id="custEmail" type="email" placeholder="abebe@example.com" maxlength="255"
+            class="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none transition focus:border-gray-400 focus:ring-2 focus:ring-gray-200" style="background:#fff;"/>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1.5" data-i18n="checkout.notes_label">Special Instructions</label>
+          <textarea id="custNotes" rows="2" maxlength="500" data-i18n-placeholder="checkout.notes_ph"
+            placeholder="Any dietary requirements or notes…"
+            class="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none resize-none transition focus:border-gray-400 focus:ring-2 focus:ring-gray-200" style="background:#fff;"></textarea>
+        </div>
+      </div>
+
+      <!-- Payment method -->
+      <div>
+        <p class="text-sm font-bold text-gray-700 mb-2.5" data-i18n="checkout.payment_title">Payment Method</p>
+        <div class="grid grid-cols-2 gap-2.5" id="payMethodGrid">
+
+          <!-- Telebirr -->
+          <label class="pay-tile flex items-center gap-2.5 p-3 border-2 rounded-xl cursor-pointer transition select-none"
+            style="border-color:#C8102E; background:#fff5f5;"
+            onclick="selectPayTile(this, 'telebirr')">
+            <input type="radio" name="payMethod" value="telebirr" checked class="hidden"/>
+            <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style="background:#c0392b;">
+              <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+            </div>
+            <div><p class="font-bold text-xs text-gray-900">Telebirr</p><p class="text-xs text-gray-400">Ethio Telecom</p></div>
+          </label>
+
+          <!-- CBE Birr -->
+          <label class="pay-tile flex items-center gap-2.5 p-3 border-2 border-gray-200 rounded-xl cursor-pointer hover:border-gray-300 transition select-none"
+            style="background:#fff;"
+            onclick="selectPayTile(this, 'cbebirr')">
+            <input type="radio" name="payMethod" value="cbebirr" class="hidden"/>
+            <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style="background:#1e40af;">
+              <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+            </div>
+            <div><p class="font-bold text-xs text-gray-900">CBE Birr</p><p class="text-xs text-gray-400">Commercial Bank</p></div>
+          </label>
+
+          <!-- Cash -->
+          <label class="pay-tile flex items-center gap-2.5 p-3 border-2 border-gray-200 rounded-xl cursor-pointer hover:border-gray-300 transition select-none"
+            style="background:#fff;"
+            onclick="selectPayTile(this, 'cash')">
+            <input type="radio" name="payMethod" value="cash" class="hidden"/>
+            <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style="background:#059669;">
+              <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+            </div>
+            <div><p class="font-bold text-xs text-gray-900" data-i18n="checkout.cash_label">Cash</p><p class="text-xs text-gray-400" data-i18n="checkout.cash_sub">Pay at counter</p></div>
+          </label>
+
+          <!-- Bank Transfer -->
+          <label class="pay-tile flex items-center gap-2.5 p-3 border-2 border-gray-200 rounded-xl cursor-pointer hover:border-gray-300 transition select-none"
+            style="background:#fff;"
+            onclick="selectPayTile(this, 'bank_transfer')">
+            <input type="radio" name="payMethod" value="bank_transfer" class="hidden"/>
+            <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style="background:#7c3aed;">
+              <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z"/></svg>
+            </div>
+            <div><p class="font-bold text-xs text-gray-900" data-i18n="checkout.bank_label">Bank Transfer</p><p class="text-xs text-gray-400" data-i18n="checkout.bank_sub">Manual transfer</p></div>
+          </label>
+
+          <!-- Online (Chapa) -->
+          <label class="pay-tile flex items-center gap-2.5 p-3 border-2 border-gray-200 rounded-xl cursor-pointer hover:border-gray-300 transition select-none col-span-2"
+            style="background:#fff;"
+            onclick="selectPayTile(this, 'online')">
+            <input type="radio" name="payMethod" value="online" class="hidden"/>
+            <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style="background:#0f172a;">
+              <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+            </div>
+            <div><p class="font-bold text-xs text-gray-900" data-i18n="checkout.online_label">Online Payment</p><p class="text-xs text-gray-400">Chapa gateway (card / other)</p></div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Promo code -->
+      <div id="promoSection">
+        <label class="block text-sm font-bold text-gray-700 mb-1.5" data-i18n="checkout.promo_label">Promo Code</label>
+        <div class="flex gap-2">
+          <input id="promoInput" type="text" placeholder="DISCOUNT20"
+            class="flex-1 px-3 py-2.5 border border-gray-200 rounded-xl text-sm font-mono uppercase outline-none focus:border-gray-400"
+            oninput="this.value=this.value.toUpperCase()" />
+          <button onclick="applyPromo()" id="promoApplyBtn"
+            class="btn px-4 py-2.5 rounded-xl text-sm font-semibold text-white" style="background:#7c3aed;"
+            data-i18n="checkout.promo_apply">Apply</button>
+        </div>
+        <div id="promoFeedback" class="hidden mt-2 text-xs rounded-lg px-3 py-2"></div>
+      </div>
+
+      <div id="checkoutError" class="hidden text-sm font-medium text-red-600 bg-red-50 p-3 rounded-xl border border-red-100"></div>
+
+      <button onclick="placeOrder()" id="placeOrderBtn"
+        class="btn w-full font-bold py-3.5 rounded-xl text-sm text-white flex items-center justify-center gap-2" style="background:#C8102E; box-shadow:0 6px 20px rgba(200,16,46,.3);">
+        <span id="placeOrderText" data-i18n="checkout.place_order">Place Order</span>
+        <svg id="placeSpinner" class="hidden animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- LOYALTY PANEL MODAL                                                       -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div id="loyaltyModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(0,0,0,.6);">
+  <div class="rounded-2xl w-full max-w-md shadow-2xl scale-in" style="background:#111111; max-height:92vh; overflow-y:auto;">
+
+    <!-- Header (always visible) -->
+    <div class="flex items-center justify-between px-6 pt-6 pb-4">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style="background:#D4A017;">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-black" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+        </div>
+        <h2 class="font-display font-bold text-white text-lg" data-i18n="loyalty.title">Loyalty Rewards</h2>
+      </div>
+      <button onclick="closeLoyaltyModal()" class="w-8 h-8 flex items-center justify-center rounded-xl text-gray-500 hover:text-white transition cursor-pointer">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <!-- ── SCREEN 1: Sign In ───────────────────────────────────────────────── -->
+    <div id="loyaltySigninScreen" class="px-6 pb-6">
+      <p class="text-sm mb-5" style="color:rgba(255,255,255,.5);" data-i18n="loyalty.signin_desc">Earn 1 point for every ETB 10 spent. Sign in with your phone or email to track your points and claim rewards.</p>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider mb-1.5" style="color:rgba(255,255,255,.4);" data-i18n="loyalty.identifier_label">Phone or Email *</label>
+          <input id="loyaltyIdentifierInput" type="text" inputmode="email" placeholder="+251 9xx xxx xxx  or  email@example.com"
+            class="w-full px-4 py-3 rounded-xl text-sm outline-none border text-white transition"
+            style="background:#1a1a1a; border-color:#333;"
+            onfocus="this.style.borderColor='#D4A017'" onblur="this.style.borderColor='#333'"
+            onkeydown="if(event.key==='Enter') loyaltySignIn()"/>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider mb-1.5" style="color:rgba(255,255,255,.4);"><span data-i18n="loyalty.name_label">Your Name</span> <span class="normal-case font-normal" style="color:rgba(255,255,255,.25);" data-i18n="common.optional">(optional)</span></label>
+          <input id="loyaltyNameInput" type="text" placeholder="Abebe Girma"
+            class="w-full px-4 py-3 rounded-xl text-sm outline-none border text-white transition"
+            style="background:#1a1a1a; border-color:#333;"
+            onfocus="this.style.borderColor='#D4A017'" onblur="this.style.borderColor='#333'"
+            onkeydown="if(event.key==='Enter') loyaltySignIn()"/>
+        </div>
+        <div id="loyaltySigninError" class="hidden text-xs px-3 py-2 rounded-lg" style="color:#f87171; background:rgba(239,68,68,.15);"></div>
+        <button onclick="loyaltySignIn()" id="loyaltySigninBtn"
+          class="btn w-full font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2" style="background:#D4A017; color:#111;">
+          <span id="loyaltySigninText" data-i18n="loyalty.signin_btn">Sign In / Join</span>
+          <svg id="loyaltySigninSpinner" class="hidden animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
+        </button>
+      </div>
+      <p class="text-xs text-center mt-4" style="color:rgba(255,255,255,.2);" data-i18n="loyalty.rate_hint">10 ETB = 1 point · Redeem points for free items</p>
+    </div>
+
+    <!-- ── SCREEN 2: Dashboard ────────────────────────────────────────────── -->
+    <div id="loyaltyDashboard" class="hidden">
+      <!-- Member bar -->
+      <div class="px-6 pb-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-black text-base flex-shrink-0" id="loyaltyAvatarCircle" style="background:#D4A017;">A</div>
+          <div>
+            <p class="font-bold text-white text-sm" id="loyaltyMemberName">Member</p>
+            <p class="text-xs" style="color:rgba(255,255,255,.35);" id="loyaltyMemberIdentifier"></p>
+          </div>
+        </div>
+        <button onclick="loyaltySignOut()" class="text-xs font-medium transition cursor-pointer" style="color:rgba(255,255,255,.3);" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='rgba(255,255,255,.3)'" data-i18n="loyalty.signout">Sign out</button>
+      </div>
+
+      <!-- Tab bar -->
+      <div class="flex mx-6 mb-0 border-b" style="border-color:#222;">
+        <button onclick="switchLoyaltyTab('points')" id="loyaltyTabPoints"
+          class="flex-1 py-2.5 text-sm font-semibold border-b-2 transition cursor-pointer" style="border-color:#D4A017; color:#D4A017;" data-i18n="loyalty.tab_points">My Points</button>
+        <button onclick="switchLoyaltyTab('rewards')" id="loyaltyTabRewards"
+          class="flex-1 py-2.5 text-sm font-semibold border-b-2 border-transparent transition cursor-pointer" style="color:rgba(255,255,255,.4);" onmouseover="this.style.color='rgba(255,255,255,.7)'" onmouseout="if(loyaltyActiveTab!=='rewards')this.style.color='rgba(255,255,255,.4)'" data-i18n="loyalty.tab_rewards">Rewards</button>
+      </div>
+
+      <!-- Points panel -->
+      <div id="loyaltyPointsPanel" class="px-6 py-5">
+        <div class="text-center pb-4">
+          <div class="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-3" style="background:linear-gradient(135deg,#D4A017,#F5D060);">
+            <div>
+              <p class="font-display font-black text-black text-3xl leading-none" id="loyaltyBalancePts">0</p>
+              <p class="text-black text-xs font-bold">pts</p>
+            </div>
+          </div>
+          <p class="text-xs" style="color:rgba(255,255,255,.35);" id="loyaltyTotalStats">0 earned · 0 redeemed</p>
+        </div>
+        <!-- Progress -->
+        <div class="mb-5">
+          <div class="flex justify-between text-xs mb-1.5" style="color:rgba(255,255,255,.4);">
+            <span>Next reward progress</span>
+            <span id="loyaltyProgressNum"></span>
+          </div>
+          <div class="h-2 rounded-full" style="background:#1e1e1e;">
+            <div class="h-2 rounded-full transition-all duration-500" id="loyaltyProgressFill" style="width:0%;background:linear-gradient(to right,#D4A017,#F5D060);"></div>
+          </div>
+          <p class="text-xs mt-1.5" style="color:rgba(255,255,255,.25);" id="loyaltyProgressHint"></p>
+        </div>
+        <!-- History -->
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:rgba(255,255,255,.3);" data-i18n="loyalty.activity_title">Recent Activity</p>
+          <div id="loyaltyTxnList" class="space-y-1.5 max-h-44 overflow-y-auto scrollbar-hide">
+            <p class="text-xs text-center py-3" style="color:rgba(255,255,255,.25);" data-i18n="loyalty.no_txns">No transactions yet</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rewards panel -->
+      <div id="loyaltyRewardsPanel" class="hidden px-6 py-5">
+        <p class="text-xs mb-4" style="color:rgba(255,255,255,.35);" id="loyaltyRewardBalanceHint"></p>
+        <div id="loyaltyRewardsList" class="space-y-3">
+          <p class="text-xs text-center py-4" style="color:rgba(255,255,255,.3);">Loading rewards…</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Claim Success ──────────────────────────────────────────────────── -->
+    <div id="loyaltyClaimSuccess" class="hidden px-6 pb-6 text-center">
+      <div class="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style="background:#D4A017;">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-9 h-9 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+      </div>
+      <h3 class="font-display font-bold text-white text-xl mb-1" data-i18n="loyalty.claimed_title">Reward Claimed!</h3>
+      <p class="text-sm mb-4" style="color:rgba(255,255,255,.45);" data-i18n="loyalty.claimed_desc">Show this code at the counter to collect your reward:</p>
+      <div class="rounded-xl p-4 mb-5 border" style="background:#1a1a1a; border-color:rgba(212,160,23,.3);">
+        <p class="font-mono font-black text-2xl tracking-widest" style="color:#D4A017;" id="claimCodeDisplay">RWD-000000</p>
+        <p class="text-xs mt-1" style="color:rgba(255,255,255,.3);" id="claimRewardName"></p>
+      </div>
+      <button onclick="backFromClaim()" class="btn w-full font-bold py-3 rounded-xl text-sm" style="background:#D4A017; color:#111;" data-i18n="loyalty.back_btn">
+        Back to My Rewards
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- REVIEW MODAL                                                              -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div id="reviewModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(0,0,0,.55);">
+  <div class="rounded-2xl w-full max-w-md p-6 shadow-2xl scale-in" style="background:#FFFDF8;">
+    <div class="flex items-center justify-between mb-5">
+      <h2 id="reviewModalTitle" class="font-display font-bold text-ink text-lg" data-i18n="review.modal_title">Write a Review</h2>
+      <button onclick="closeReviewModal()" class="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-gray-100 transition-colors cursor-pointer text-gray-400">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <!-- Edit banner shown only in edit mode -->
+    <div id="reviewEditBanner" class="hidden mb-4 flex items-center gap-2 p-3 rounded-xl text-sm font-medium" style="background:#fff7ed; border:1px solid #fed7aa; color:#c2410c;">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+      <span data-i18n="review.edit_banner">Editing your existing review</span>
+    </div>
+
+    <!-- Hidden fields for edit mode -->
+    <input type="hidden" id="reviewEditId"/>
+    <input type="hidden" id="reviewEditToken"/>
+
+    <div class="space-y-4">
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1.5" data-i18n="review.name_label">Your Name *</label>
+        <input id="reviewName" type="text" placeholder="Abebe Girma" maxlength="100" data-i18n-placeholder="review.name_ph"
+          class="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none transition focus:border-gray-400" style="background:#fff;"/>
+      </div>
+
+      <!-- Star picker -->
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-2" data-i18n="review.rating_label">Rating *</label>
+        <div class="star-input flex flex-row-reverse justify-end gap-1">
+          <input type="radio" id="s5" name="reviewRating" value="5" class="hidden"/>
+          <label for="s5" class="text-3xl text-gray-300 cursor-pointer select-none">★</label>
+          <input type="radio" id="s4" name="reviewRating" value="4" class="hidden"/>
+          <label for="s4" class="text-3xl text-gray-300 cursor-pointer select-none">★</label>
+          <input type="radio" id="s3" name="reviewRating" value="3" class="hidden"/>
+          <label for="s3" class="text-3xl text-gray-300 cursor-pointer select-none">★</label>
+          <input type="radio" id="s2" name="reviewRating" value="2" class="hidden"/>
+          <label for="s2" class="text-3xl text-gray-300 cursor-pointer select-none">★</label>
+          <input type="radio" id="s1" name="reviewRating" value="1" class="hidden"/>
+          <label for="s1" class="text-3xl text-gray-300 cursor-pointer select-none">★</label>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1.5" data-i18n="review.comment_label">Your Review</label>
+        <textarea id="reviewComment" rows="3" placeholder="Tell us about your experience…" maxlength="1000" data-i18n-placeholder="review.comment_ph"
+          class="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none resize-none transition focus:border-gray-400" style="background:#fff;"></textarea>
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1.5"><span data-i18n="review.order_label">Order Number</span> <span class="font-normal text-gray-400" data-i18n="common.optional">(optional)</span></label>
+        <input id="reviewOrder" type="text" placeholder="ORD-XXXXXXXX" maxlength="20"
+          class="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none transition focus:border-gray-400 font-mono uppercase" style="background:#fff;"
+          oninput="this.value=this.value.toUpperCase()"/>
+      </div>
+      <div id="reviewError" class="hidden text-sm text-red-600 bg-red-50 p-3 rounded-xl border border-red-100"></div>
+      <button onclick="submitReview()" id="reviewSubmitBtn"
+        class="btn w-full font-bold py-3 rounded-xl text-sm text-white flex items-center justify-center gap-2" style="background:#C8102E;">
+        <span id="reviewSubmitText" data-i18n="review.submit_btn">Submit Review</span>
+        <svg id="reviewSpinner" class="hidden animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- CONFIRM / SUCCESS MODAL                                                   -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div id="confirmModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(0,0,0,.55);">
+  <div class="rounded-2xl w-full max-w-md p-6 text-center shadow-2xl scale-in" style="background:#FFFDF8;">
+    <div id="confirmContent"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- PAYMENT WAITING MODAL (Telebirr / CBE Birr)                               -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div id="payWaitModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(0,0,0,.65);">
+  <div class="rounded-2xl w-full max-w-sm p-6 text-center shadow-2xl" style="background:#FFFDF8;">
+    <!-- Spinner -->
+    <div class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style="background:#fff5f5;">
+      <div class="w-10 h-10 border-4 rounded-full animate-spin" style="border-color:#f0f0f0; border-top-color:#C8102E;"></div>
+    </div>
+    <h2 id="payWaitTitle" class="font-bold text-xl text-gray-900 mb-1">Waiting for Payment</h2>
+    <p id="payWaitSub" class="text-sm text-gray-400 mb-4">Complete the payment on your phone or app</p>
+
+    <!-- Countdown -->
+    <div class="rounded-xl p-3 mb-4" style="background:#f8fafc; border:1px solid #e2e8f0;">
+      <p class="text-xs text-gray-500 mb-1" data-i18n="pay.wait.expires">Expires in</p>
+      <p id="payWaitCountdown" class="text-2xl font-mono font-extrabold text-gray-900">30:00</p>
+    </div>
+
+    <p class="text-xs text-gray-400 mb-4" id="payWaitInstruction">Open Telebirr on your phone and approve the payment request.</p>
+
+    <!-- Order tracking link -->
+    <a id="payWaitTrackLink" href="#" target="_blank"
+      class="block w-full py-2.5 rounded-xl text-sm font-semibold text-white mb-3" style="background:#C8102E;">
+      Track Order
+    </a>
+    <button onclick="closePayWait()" class="w-full py-2 text-sm text-gray-500 hover:text-gray-700 font-medium">
+      Cancel / Pay Later
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- BANK TRANSFER INSTRUCTIONS MODAL                                          -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div id="bankModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(0,0,0,.65);">
+  <div class="rounded-2xl w-full max-w-sm p-6 shadow-2xl" style="background:#FFFDF8;">
+    <div class="flex items-center gap-3 mb-5">
+      <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background:#7c3aed;">
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z"/></svg>
+      </div>
+      <h2 class="font-bold text-xl text-gray-900" data-i18n="bank.title">Bank Transfer</h2>
+    </div>
+    <div id="bankDetails" class="rounded-xl p-4 space-y-3 mb-4" style="background:#f8fafc; border:1px solid #e2e8f0;"></div>
+    <!-- Ref input -->
+    <label class="block text-sm font-semibold text-gray-700 mb-1.5" data-i18n="bank.your_ref">Your Bank Reference</label>
+    <input id="bankRefInput" type="text" placeholder="TXN-12345"
+      class="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm font-mono mb-4 outline-none focus:border-purple-400" />
+    <button onclick="claimBankTransfer()" id="bankClaimBtn"
+      class="btn w-full py-3 rounded-xl font-bold text-sm text-white mb-3" style="background:#7c3aed;"
+      data-i18n="bank.claim">I've Made the Transfer</button>
+    <button onclick="closeBankModal()" class="w-full py-2 text-sm text-gray-500 hover:text-gray-700 font-medium" data-i18n="btn.cancel">Cancel</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- PAYMENT RETURN BANNER                                                     -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div id="paymentReturnBanner" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-2xl px-6 py-3.5 flex items-center gap-3 shadow-2xl border" style="background:#111; border-color:#222;">
+  <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-400"></div>
+  <p class="text-sm font-semibold text-white" data-i18n="payment.verifying">Verifying your payment…</p>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- INGREDIENT CUSTOMIZATION MODAL                                            -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div id="ingredientModal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" style="background:rgba(0,0,0,.65); backdrop-filter:blur(6px);">
+  <div class="w-full sm:max-w-lg max-h-[94vh] sm:max-h-[88vh] flex flex-col rounded-t-3xl sm:rounded-3xl overflow-hidden scale-in" style="background:#0D0D0D; border:1px solid #1e1e1e;">
+
+    <!-- Header: image + close -->
+    <div class="relative flex-shrink-0 h-44 sm:h-52 overflow-hidden">
+      <div id="ingModalImgBg" class="absolute inset-0 w-full h-full"></div>
+      <div class="absolute inset-0" style="background:linear-gradient(to top,#0D0D0D 0%,rgba(0,0,0,.3) 60%,transparent 100%);"></div>
+      <!-- Close -->
+      <button onclick="closeIngredientModal()" class="btn absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center text-white cursor-pointer" style="background:rgba(0,0,0,.5); backdrop-filter:blur(8px);">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+      <!-- Item info overlay -->
+      <div class="absolute bottom-4 left-5 right-5">
+        <span id="ingModalCategory" class="inline-block text-xs font-bold px-2.5 py-0.5 rounded-full mb-1.5" style="background:rgba(200,16,46,.85); color:#fff;"></span>
+        <h2 id="ingModalName" class="font-display font-bold text-white leading-tight" style="font-size:1.35rem;"></h2>
+      </div>
+    </div>
+
+    <!-- Scrollable body -->
+    <div class="flex-1 overflow-y-auto scrollbar-hide">
+      <div class="p-5 space-y-1">
+        <p id="ingModalDescription" class="text-sm pb-4" style="color:rgba(255,255,255,.45); line-height:1.6;"></p>
+        <!-- Toggle ingredients (included by default, can remove) -->
+        <div id="ingModalToggles" class="hidden space-y-6 pb-4">
+          <div>
+            <div class="flex items-center gap-2 mb-2.5">
+              <p class="font-bold text-sm text-white">Includes</p>
+              <span class="text-xs font-medium" style="color:rgba(255,255,255,.28);">tap to remove</span>
+            </div>
+            <div id="ingModalToggleItems" class="space-y-2"></div>
+          </div>
+        </div>
+        <!-- Option groups (radio / checkbox) -->
+        <div id="ingModalGroups" class="space-y-6"></div>
+        <!-- Special instructions -->
+        <div class="pt-5">
+          <div class="flex items-center gap-2 mb-2.5">
+            <p class="font-bold text-sm text-white">Special Instructions</p>
+            <span class="text-xs font-medium" style="color:rgba(255,255,255,.28);">optional</span>
+          </div>
+          <textarea id="ingSpecialInstructions" class="ing-special-textarea" rows="2"
+            placeholder="Any allergies, preferences, or special requests…" maxlength="500"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer: price + qty + add to cart -->
+    <div class="flex-shrink-0 p-5" style="border-top:1px solid #1e1e1e; background:#0D0D0D;">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <p class="text-xs font-medium mb-0.5" style="color:rgba(255,255,255,.3);" data-i18n="cart.total">Total</p>
+          <p id="ingModalPrice" class="font-display font-bold text-white" style="font-size:1.5rem;"></p>
+        </div>
+        <!-- Quantity selector -->
+        <div class="flex items-center gap-3">
+          <button onclick="ingQtyChange(-1)" class="btn w-9 h-9 rounded-full flex items-center justify-center font-bold text-lg" style="border:1px solid #333; color:rgba(255,255,255,.6); background:transparent;">−</button>
+          <span id="ingModalQty" class="font-bold text-white text-lg w-7 text-center">1</span>
+          <button onclick="ingQtyChange(1)" class="btn w-9 h-9 rounded-full flex items-center justify-center font-bold text-lg text-white" style="background:#C8102E;">+</button>
+        </div>
+      </div>
+      <button onclick="addToCartFromModal()" id="ingAddToCartBtn"
+        class="btn w-full py-3.5 rounded-2xl font-bold text-sm text-white"
+        style="background:#C8102E; box-shadow:0 6px 24px rgba(200,16,46,.35);" data-i18n="ing.add_to_cart">
+        Add to Cart
+      </button>
+      <p id="ingRequiredHint" class="hidden text-xs text-center mt-2.5 font-medium" style="color:#f87171;" data-i18n="ing.required_hint">
+        Please complete required selections above
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- TOAST                                                                     -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div id="toast" class="hidden fixed bottom-6 right-4 z-50 px-4 py-3 rounded-xl shadow-xl text-white text-sm font-semibold flex items-center gap-2.5" style="min-width:200px; animation:slideUp .3s ease both;"></div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- SCRIPTS                                                                   -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<script>
+const API = window.location.origin;
+let menu  = [];
+let cart  = {};
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function init() {
+  setupNavbarScroll();
+  applyTranslations();
+  await Promise.all([ loadMenu(), loadReviewSummary(), loadReviews() ]);
+  checkPaymentReturn();
+  renderCart();
+  const storedId = localStorage.getItem('loyaltyIdentifier');
+  if (storedId) refreshStoredLoyalty();
+}
+
+function setupNavbarScroll() {
+  const nav = document.getElementById('navbar');
+  const brand = document.getElementById('brandName');
+  const staffLink = document.getElementById('staffLoginLink');
+  window.addEventListener('scroll', () => {
+    const scrolled = window.scrollY > 60;
+    nav.classList.toggle('scrolled', scrolled);
+    if (scrolled) {
+      brand.style.color = '#111111';
+      if (staffLink) staffLink.style.color = '#6b7280';
+    } else {
+      brand.style.color = 'white';
+      if (staffLink) staffLink.style.color = 'rgba(255,255,255,.7)';
+    }
+  });
+}
+
+function smoothScrollToMenu(e) {
+  e.preventDefault();
+  document.getElementById('menu').scrollIntoView({ behavior:'smooth' });
+}
+function smoothScrollToSection(id, e) {
+  e.preventDefault();
+  document.getElementById(id)?.scrollIntoView({ behavior:'smooth' });
+}
+
+// ── Menu ──────────────────────────────────────────────────────────────────────
+async function loadMenu() {
+  try {
+    const [menuRes, catRes] = await Promise.all([
+      fetch(`${API}/api/menu`),
+      fetch(`${API}/api/menu/categories`),
+    ]);
+    menu = await menuRes.json();
+    const cats = await catRes.json();
+    renderCategoryBar(cats);
+    renderMenuGrid(menu);
+    document.getElementById('loadingSkeleton').remove();
+    document.getElementById('menuItemCount').textContent = `${menu.length} items`;
+  } catch (e) {
+    document.getElementById('loadingSkeleton').innerHTML =
+      '<p class="col-span-4 text-center text-red-500 py-10 text-sm">Could not load menu. Is the server running?</p>';
+  }
+}
+
+function renderCategoryBar(cats) {
+  const bar = document.getElementById('categoryBar');
+  cats.forEach(cat => {
+    const btn = document.createElement('button');
+    btn.className = 'cat-btn px-4 py-2 border border-gray-200 bg-white text-sm text-gray-600';
+    btn.dataset.cat = cat;
+    btn.textContent = cat;
+    btn.onclick = () => filterCategory(cat, btn);
+    bar.appendChild(btn);
+  });
+}
+
+function filterCategory(cat, clickedBtn) {
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+  clickedBtn.classList.add('active');
+  const filtered = cat ? menu.filter(i => i.category === cat) : menu;
+  renderMenuGrid(filtered);
+  document.getElementById('menuItemCount').textContent = `${filtered.length} items`;
+}
+
+function renderMenuGrid(items) {
+  const grid = document.getElementById('menuGrid');
+  grid.innerHTML = '';
+  if (!items.length) {
+    grid.innerHTML = '<p class="col-span-4 text-center text-gray-400 py-12 text-sm">No items in this category.</p>';
+    return;
+  }
+  items.forEach((item, idx) => {
+    const inCart         = getItemTotalQty(item.id);
+    const hasIngredients = item.ingredients && item.ingredients.length > 0;
+    const card           = document.createElement('div');
+    card.className = 'menu-card bg-white rounded-2xl overflow-hidden border border-gray-100 fade-in';
+    card.style.animationDelay = Math.min(idx * 40, 280) + 'ms';
+
+    const imgBg = getItemGradient(item.category);
+
+    card.innerHTML = `
+      <div class="relative h-44 overflow-hidden flex items-center justify-center cursor-pointer" style="background:${imgBg};" onclick="openIngredientModal(${item.id})">
+        ${item.image_url
+          ? `<img src="${escHtml(item.image_url)}" alt="${escHtml(item.name)}" class="w-full h-full object-cover" loading="lazy"/>`
+          : `<div class="opacity-30">${getCategoryIcon(item.category)}</div>`
+        }
+        <span class="absolute top-3 left-3 text-xs font-bold px-2.5 py-1 rounded-full" style="background:rgba(0,0,0,.45); color:rgba(255,255,255,.9); backdrop-filter:blur(8px);">${escHtml(item.category)}</span>
+        ${hasIngredients ? '<span class="absolute top-3 right-3 text-xs font-bold px-2 py-0.5 rounded-full" style="background:rgba(212,160,23,.85); color:#111;">Customize</span>' : ''}
+      </div>
+      <div class="p-4 cursor-pointer" onclick="openIngredientModal(${item.id})">
+        <h3 class="font-bold text-gray-900 text-sm leading-snug mb-1">${escHtml(item.name)}</h3>
+        <p class="text-xs text-gray-400 mb-3 leading-relaxed" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${escHtml(item.description||'')}</p>
+        <div class="flex items-center justify-between" onclick="event.stopPropagation()">
+          <div>
+            <span class="font-display font-bold text-base" style="color:#C8102E;">ETB ${item.price.toFixed(2)}</span>
+            <p class="text-xs text-gray-400">+${Math.floor(item.price/10)} pts</p>
+          </div>
+          <div class="flex items-center gap-2" id="cartCtrl_${item.id}">
+            ${renderCartControl(item.id, inCart)}
+          </div>
+        </div>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function renderCartControl(id, qty) {
+  const item = menu.find(i => i.id === id);
+  const hasIngredients = item && item.ingredients && item.ingredients.length > 0;
+  // Always open modal on + so customers can pick customizations or just confirm qty
+  const addAction = `openIngredientModal(${id})`;
+
+  if (qty > 0) {
+    return `
+      <button onclick="event.stopPropagation(); changeQty(${id},-1)" class="btn w-8 h-8 rounded-full border border-gray-200 text-gray-600 font-bold flex items-center justify-center hover:bg-gray-50 text-lg">−</button>
+      <span class="w-5 text-center text-sm font-bold text-gray-900">${qty}</span>
+      <button onclick="event.stopPropagation(); ${addAction}" class="btn w-8 h-8 rounded-full text-white font-bold flex items-center justify-center text-lg" style="background:#C8102E;">+</button>
+    `;
+  }
+  return `<button onclick="event.stopPropagation(); ${addAction}" class="btn w-8 h-8 rounded-full text-white font-bold flex items-center justify-center text-lg" style="background:#C8102E;">+</button>`;
+}
+
+// ── Cart helpers ──────────────────────────────────────────────────────────────
+function getItemTotalQty(itemId) {
+  return Object.values(cart)
+    .filter(e => e.item.id === itemId)
+    .reduce((s, e) => s + e.qty, 0);
+}
+
+function updateMenuCardQty(itemId) {
+  const totalQty = getItemTotalQty(itemId);
+  const ctrl = document.getElementById(`cartCtrl_${itemId}`);
+  if (ctrl) ctrl.innerHTML = renderCartControl(itemId, totalQty);
+}
+
+function getItemGradient(cat) {
+  const map = {
+    'Chaofan':     'linear-gradient(135deg,#1a0a05,#3d1808)',
+    'Extras':      'linear-gradient(135deg,#1a1005,#3d2808)',
+    'Main Dishes': 'linear-gradient(135deg,#1a0a05,#3d1808)',
+    'Vegetarian':  'linear-gradient(135deg,#052005,#0a3d0a)',
+    'Breakfast':   'linear-gradient(135deg,#1a1005,#3d2808)',
+    'Drinks':      'linear-gradient(135deg,#050a1a,#083d3d)',
+    'Sides':       'linear-gradient(135deg,#0d0505,#3d0a0a)',
+  };
+  return map[cat] || 'linear-gradient(135deg,#111,#333)';
+}
+
+function getCategoryIcon(cat) {
+  const icons = {
+    'Chaofan':     `<svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width=".8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 12h16M4 12a8 8 0 0016 0M4 12l-1.5 1.5M20 12l1.5 1.5M8 8c.5-1 1.5-1.5 2.5-1.5M13 6.5c1 0 2 .5 2.5 1.5"/></svg>`,
+    'Extras':      `<svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width=".8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>`,
+    'Main Dishes': `<svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width=".8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0118 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/></svg>`,
+    'Vegetarian':  `<svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width=".8"><path stroke-linecap="round" stroke-linejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064"/></svg>`,
+    'Breakfast':   `<svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width=".8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"/></svg>`,
+    'Drinks':      `<svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width=".8"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1 1 .03 2.798-1.442 2.798H4.24c-1.47 0-2.441-1.798-1.441-2.798L4 15.302"/></svg>`,
+    'Sides':       `<svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width=".8"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/></svg>`,
+  };
+  return icons[cat] || icons['Main Dishes'];
+}
+
+// ── Cart ──────────────────────────────────────────────────────────────────────
+function changeQty(id, delta) {
+  // delta is always -1 from the menu card's − button (+ opens the modal)
+  if (delta < 0) {
+    // Remove from the last cart entry for this item
+    const keys = Object.keys(cart).filter(k => cart[k].item.id === id);
+    if (keys.length) {
+      const lastKey = keys[keys.length - 1];
+      cart[lastKey].qty = Math.max(0, cart[lastKey].qty - 1);
+      if (cart[lastKey].qty === 0) delete cart[lastKey];
+      renderCart();
+      updateMenuCardQty(id);
+    }
+  }
+}
+
+function changeQtyByKey(cartKey, delta) {
+  if (!cart[cartKey]) return;
+  const itemId = cart[cartKey].item.id;
+  cart[cartKey].qty = Math.max(0, cart[cartKey].qty + delta);
+  if (cart[cartKey].qty === 0) delete cart[cartKey];
+  renderCart();
+  updateMenuCardQty(itemId);
+}
+
+function renderCart() {
+  const entries = Object.values(cart);
+  const total   = entries.reduce((s, e) => s + e.adjustedPrice * e.qty, 0);
+  const count   = entries.reduce((s, e) => s + e.qty, 0);
+  const pts     = Math.floor(total / 10);
+
+  document.getElementById('cartBadge').textContent = count;
+  document.getElementById('cartBadge').classList.toggle('hidden', count === 0);
+  document.getElementById('checkoutBtn').disabled = count === 0;
+  document.getElementById('cartTotal').textContent = `ETB ${total.toFixed(2)}`;
+  document.getElementById('cartPointsPreview').textContent = count > 0 ? t('cart.earn_preview', { pts }) : '';
+
+  const container = document.getElementById('cartItems');
+  document.getElementById('cartEmpty').classList.toggle('hidden', entries.length > 0);
+  container.querySelectorAll('.cart-item').forEach(el => el.remove());
+
+  entries.forEach(({ item, qty, adjustedPrice, customizations, removals, specialInstructions, cartKey }) => {
+    const div = document.createElement('div');
+    div.className = 'cart-item flex items-start justify-between border-b border-gray-100 pb-3';
+    const customSummary = customizations && customizations.length
+      ? `<p class="text-xs text-gray-400 mt-0.5 leading-relaxed">${customizations.map(c => escHtml(c.name)).join(' · ')}</p>`
+      : '';
+    const removalSummary = removals && removals.length
+      ? `<p class="text-xs mt-0.5 leading-relaxed" style="color:#f87171;">No: ${removals.map(r => escHtml(r.name)).join(', ')}</p>`
+      : '';
+    const instrSummary = specialInstructions
+      ? `<p class="text-xs italic mt-0.5 leading-relaxed" style="color:#a3a3a3;">"${escHtml(specialInstructions)}"</p>`
+      : '';
+    const safeKey = escHtml(cartKey);
+    div.innerHTML = `
+      <div class="flex-1 min-w-0 pr-3">
+        <p class="text-sm font-semibold text-gray-900 truncate">${escHtml(item.name)}</p>
+        ${customSummary}${removalSummary}${instrSummary}
+        <p class="text-xs text-gray-400 font-medium mt-0.5">ETB ${(adjustedPrice * qty).toFixed(2)}</p>
+      </div>
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <button onclick="changeQtyByKey('${safeKey}',-1)" class="btn w-7 h-7 rounded-full border border-gray-200 text-gray-500 flex items-center justify-center font-bold text-base hover:bg-gray-50">−</button>
+        <span class="text-sm font-bold w-4 text-center text-gray-900">${qty}</span>
+        <button onclick="changeQtyByKey('${safeKey}',1)" class="btn w-7 h-7 rounded-full text-white flex items-center justify-center font-bold text-base" style="background:#C8102E;">+</button>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function toggleCart() {
+  const panel   = document.getElementById('cartPanel');
+  const overlay = document.getElementById('cartOverlay');
+  const isOpen  = !panel.classList.contains('translate-x-full');
+  panel.classList.toggle('translate-x-full', isOpen);
+  overlay.classList.toggle('hidden', isOpen);
+}
+
+// ── Checkout ──────────────────────────────────────────────────────────────────
+function openCheckout() {
+  const entries = Object.values(cart);
+  const total   = entries.reduce((s, e) => s + e.adjustedPrice * e.qty, 0);
+  const pts     = Math.floor(total / 10);
+  document.getElementById('checkoutSummary').innerHTML = entries.map(({ item, qty, adjustedPrice, customizations, removals, specialInstructions }) => {
+    const customLine = customizations && customizations.length
+      ? `<span class="block text-xs text-gray-400 mt-0.5">${customizations.map(c => escHtml(c.name)).join(' · ')}</span>`
+      : '';
+    const removalLine = removals && removals.length
+      ? `<span class="block text-xs mt-0.5" style="color:#f87171;">No: ${removals.map(r => escHtml(r.name)).join(', ')}</span>`
+      : '';
+    const instrLine = specialInstructions
+      ? `<span class="block text-xs italic mt-0.5 text-gray-400">"${escHtml(specialInstructions)}"</span>`
+      : '';
+    return `
+      <div class="pb-1">
+        <div class="flex justify-between">
+          <span class="text-gray-600">${escHtml(item.name)} × ${qty}</span>
+          <span class="font-semibold">ETB ${(adjustedPrice * qty).toFixed(2)}</span>
+        </div>
+        ${customLine}${removalLine}${instrLine}
+      </div>`;
+  }).join('');
+  document.getElementById('checkoutTotal').textContent = `ETB ${total.toFixed(2)}`;
+  document.getElementById('checkoutPointsEarn').textContent = pts > 0 ? t('checkout.earn_hint', { pts }) : '';
+  document.getElementById('checkoutModal').classList.remove('hidden');
+  document.getElementById('cartPanel').classList.add('translate-x-full');
+  document.getElementById('cartOverlay').classList.add('hidden');
+}
+
+function closeCheckout() {
+  document.getElementById('checkoutModal').classList.add('hidden');
+  document.getElementById('checkoutError').classList.add('hidden');
+}
+
+// ── Place Order ───────────────────────────────────────────────────────────────
+async function placeOrder() {
+  const name      = document.getElementById('custName').value.trim();
+  const phone     = document.getElementById('custPhone').value.trim();
+  const email     = document.getElementById('custEmail').value.trim();
+  const notes     = document.getElementById('custNotes').value.trim();
+  const payMethod = document.querySelector('input[name="payMethod"]:checked').value;
+  const errEl     = document.getElementById('checkoutError');
+  errEl.classList.add('hidden');
+
+  if (!name)  { showCheckoutError(t('err.name_required')); return; }
+  if (payMethod === 'online' && !email) { showCheckoutError(t('err.email_required')); return; }
+
+  const items = Object.values(cart).map(({ item, qty, customizations, removals, specialInstructions }) => ({
+    menu_item_id:          item.id,
+    quantity:              qty,
+    customizations:        (customizations || []).map(c => c.id),
+    removals:              (removals || []).map(r => r.id),
+    special_instructions:  specialInstructions || null,
+  }));
+  setPlaceLoading(true);
+  try {
+    const orderRes = await fetch(`${API}/api/orders`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ customer_name:name, customer_phone:phone||null, customer_email:email||null, items, payment_method:payMethod, notes:notes||null }),
+    });
+    const order = await orderRes.json();
+    if (!orderRes.ok) { showCheckoutError(order.detail || 'Failed to place order'); return; }
+
+    // Earn points after order placed (fire-and-forget)
+    const storedIdentifier = localStorage.getItem('loyaltyIdentifier');
+    const earnIdentifier   = storedIdentifier || phone || null;
+    if (earnIdentifier) {
+      const orderTotal   = Object.values(cart).reduce((s, e) => s + e.adjustedPrice * e.qty, 0);
+      const isEmailIdent = earnIdentifier.includes('@');
+      const earnPayload  = {
+        display_name: localStorage.getItem('loyaltyDisplayName') || name,
+        order_id: order.id,
+        order_number: order.order_number,
+        amount: orderTotal,
+      };
+      if (isEmailIdent) earnPayload.email = earnIdentifier;
+      else              earnPayload.phone = earnIdentifier;
+      fetch(`${API}/api/loyalty/earn`, {
+        method: 'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(earnPayload),
+      }).then(r => r.json()).then(() => refreshStoredLoyalty()).catch(() => {});
+    }
+
+    if (payMethod === 'online') {
+      const payRes = await fetch(`${API}/api/payment/initialize/${order.id}`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ tx_ref: order.tx_ref }),
+      });
+      const payData = await payRes.json();
+      if (!payRes.ok) { showCheckoutError(payData.detail || t('err.payment_failed')); return; }
+      const checkoutUrl = payData.checkout_url || '';
+      if (!checkoutUrl.startsWith('https://checkout.chapa.co/') && !checkoutUrl.startsWith('https://api.chapa.co/')) {
+        showCheckoutError('Invalid payment URL. Please contact support.'); return;
+      }
+      cart = {}; renderCart(); closeCheckout();
+      window.location.href = checkoutUrl;
+    } else {
+      cart = {}; renderCart(); closeCheckout();
+      showCashConfirmation(order);
+    }
+  } catch (e) {
+    showCheckoutError(t('err.network'));
+  } finally {
+    setPlaceLoading(false);
+  }
+}
+
+function showCheckoutError(msg) {
+  const el = document.getElementById('checkoutError');
+  el.textContent = msg; el.classList.remove('hidden');
+}
+function setPlaceLoading(v) {
+  document.getElementById('placeOrderBtn').disabled = v;
+  document.getElementById('placeSpinner').classList.toggle('hidden', !v);
+  document.getElementById('placeOrderText').textContent = v ? t('checkout.placing') : t('checkout.place_order');
+}
+
+// ── Order success modals ──────────────────────────────────────────────────────
+function showCashConfirmation(order) {
+  document.getElementById('confirmContent').innerHTML = `
+    <div class="py-2">
+      <div class="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style="background:#f0fdf4;">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-9 h-9 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+        </svg>
+      </div>
+      <h2 class="font-display font-bold text-2xl text-ink mb-1">${t('success.cash_title')}</h2>
+      <p class="text-gray-400 text-sm mb-5">${t('success.cash_sub')}</p>
+      <div class="rounded-xl p-4 text-left mb-5 space-y-2 border border-gray-100" style="background:#f9f7f4;">
+        <div class="flex justify-between text-sm"><span class="text-gray-500">${t('success.order_number')}</span><span class="font-bold font-mono text-ink">${order.order_number}</span></div>
+        <div class="flex justify-between text-sm"><span class="text-gray-500">${t('success.total')}</span><span class="font-bold text-ink">ETB ${order.total_amount.toFixed(2)}</span></div>
+        <div class="flex justify-between text-sm"><span class="text-gray-500">${t('success.payment')}</span><span class="font-bold" style="color:#D4A017;">${t('success.cash_payment')}</span></div>
+      </div>
+      <p class="text-xs text-gray-400 mb-5">${t('success.cash_hint')}</p>
+      <button onclick="document.getElementById('confirmModal').classList.add('hidden')"
+        class="btn w-full font-bold py-3 rounded-xl text-sm text-white" style="background:#C8102E;">
+        ${t('common.done')}
+      </button>
+    </div>
+  `;
+  document.getElementById('confirmModal').classList.remove('hidden');
+}
+
+async function checkPaymentReturn() {
+  const params  = new URLSearchParams(window.location.search);
+  const txRef   = params.get('tx_ref');
+  const orderId = params.get('order_id');
+  if (!txRef || !orderId || params.get('payment') !== 'return') return;
+  window.history.replaceState({}, '', '/frontend/customer.html');
+  document.getElementById('paymentReturnBanner').classList.remove('hidden');
+  try {
+    const res  = await fetch(`${API}/api/payment/verify/${txRef}`);
+    const data = await res.json();
+    document.getElementById('paymentReturnBanner').classList.add('hidden');
+    if (data.status === 'paid' || data.status === 'already_paid') showPaidConfirmation(data);
+    else showPaymentFailed(data.status);
+  } catch (e) {
+    document.getElementById('paymentReturnBanner').classList.add('hidden');
+    showPaymentFailed('network_error');
+  }
+}
+
+function showPaidConfirmation(data) {
+  const tokenDiv = data.receipt_token
+    ? `<div id="qrDiv" class="flex justify-center my-4"></div>
+       <p class="text-xs text-gray-400 mb-1">Receipt Code</p>
+       <p class="font-mono font-bold text-xl tracking-widest text-ink mb-3">${data.receipt_code}</p>` : '';
+  document.getElementById('confirmContent').innerHTML = `
+    <div class="py-2">
+      <div class="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style="background:#f0fdf4;">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-9 h-9 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+        </svg>
+      </div>
+      <h2 class="font-display font-bold text-2xl text-green-600 mb-1">${t('success.paid_title')}</h2>
+      <p class="text-gray-400 text-sm mb-4">${t('success.paid_sub')}</p>
+      <div class="rounded-xl p-4 mb-4 space-y-2 border" style="background:#f0fdf4;border-color:#bbf7d0;">
+        <div class="flex justify-between text-sm"><span class="text-gray-500">${t('success.order')}</span><span class="font-bold font-mono">${data.order_number}</span></div>
+        <div class="flex justify-between text-sm"><span class="text-gray-500">${t('success.status')}</span><span class="text-green-700 font-bold">${t('success.paid_status')}</span></div>
+      </div>
+      ${tokenDiv}
+      <p class="text-xs text-gray-400 mb-5">${t('success.receipt_hint')}</p>
+      <button onclick="document.getElementById('confirmModal').classList.add('hidden')"
+        class="btn w-full font-bold py-3 rounded-xl text-sm text-white" style="background:#C8102E;">
+        ${t('common.continue')}
+      </button>
+    </div>
+  `;
+  document.getElementById('confirmModal').classList.remove('hidden');
+  if (data.receipt_token) {
+    setTimeout(() => {
+      const qrDiv = document.getElementById('qrDiv');
+      if (qrDiv) new QRCode(qrDiv, { text: data.receipt_token, width:140, height:140, colorDark:'#111111', colorLight:'#ffffff' });
+    }, 100);
+  }
+}
+
+function showPaymentFailed(status) {
+  document.getElementById('confirmContent').innerHTML = `
+    <div class="py-2 text-center">
+      <div class="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center mx-auto mb-4">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-9 h-9 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </div>
+      <h2 class="font-display font-bold text-2xl text-red-600 mb-1">${t('success.pay_failed')}</h2>
+      <p class="text-gray-400 text-sm mb-5">Status: <code class="bg-gray-100 px-1.5 py-0.5 rounded text-xs">${status}</code></p>
+      <button onclick="document.getElementById('confirmModal').classList.add('hidden')"
+        class="btn w-full font-bold py-3 rounded-xl text-sm text-white" style="background:#C8102E;">
+        ${t('common.close')}
+      </button>
+    </div>
+  `;
+  document.getElementById('confirmModal').classList.remove('hidden');
+}
+
+// ── Ingredient Customization Modal ────────────────────────────────────────────
+let ingModalItem    = null;
+let ingModalQtyVal  = 1;
+let ingModalToggles = [];   // toggle-type (default-included) ingredients
+let ingModalGroups  = [];   // radio / checkbox option groups
+
+function openIngredientModal(itemId) {
+  const item = menu.find(i => i.id === itemId);
+  if (!item) return;
+
+  // Items with no ingredients → quick-add directly to cart
+  if (!item.ingredients || !item.ingredients.length) {
+    const key = String(item.id);
+    if (!cart[key]) cart[key] = { item, qty: 0, customizations: [], removals: [], specialInstructions: null, adjustedPrice: item.price, cartKey: key };
+    cart[key].qty++;
+    renderCart();
+    updateMenuCardQty(item.id);
+    showToast(`${item.name} added!`, 'green');
+    return;
+  }
+
+  ingModalItem   = item;
+  ingModalQtyVal = 1;
+
+  // Fill header image / gradient
+  const bg = document.getElementById('ingModalImgBg');
+  if (item.image_url) {
+    bg.innerHTML = `<img src="${escHtml(item.image_url)}" alt="${escHtml(item.name)}" class="w-full h-full object-cover"/>`;
+  } else {
+    bg.innerHTML = `<div class="absolute inset-0 flex items-center justify-center opacity-25" style="background:${getItemGradient(item.category)};">${getCategoryIcon(item.category)}</div>`;
+    bg.style.background = getItemGradient(item.category);
+  }
+
+  document.getElementById('ingModalCategory').textContent    = item.category;
+  document.getElementById('ingModalName').textContent        = item.name;
+  document.getElementById('ingModalDescription').textContent = item.description || '';
+  document.getElementById('ingModalQty').textContent         = '1';
+  document.getElementById('ingSpecialInstructions').value    = '';
+
+  // Split ingredients: toggles vs option groups
+  const { toggles, groups } = _buildIngData(item.ingredients);
+  ingModalToggles = toggles;
+  ingModalGroups  = groups;
+
+  _renderToggles();
+  _renderIngGroups();
+  _updateIngPrice();
+
+  document.getElementById('ingredientModal').classList.remove('hidden');
+}
+
+function closeIngredientModal() {
+  document.getElementById('ingredientModal').classList.add('hidden');
+  ingModalItem = null;
+}
+
+// Split raw ingredients array into toggle list + option groups map
+function _buildIngData(ingredients) {
+  const toggles = ingredients.filter(i => i.input_type === 'toggle');
+  const optionIngs = ingredients.filter(i => i.input_type !== 'toggle');
+
+  const map = new Map();
+  optionIngs.forEach(ing => {
+    if (!map.has(ing.group_name)) {
+      map.set(ing.group_name, {
+        name:        ing.group_name,
+        input_type:  ing.input_type,
+        is_required: ing.is_required,
+        options:     [],
+      });
+    }
+    map.get(ing.group_name).options.push(ing);
+  });
+  return { toggles, groups: [...map.values()] };
+}
+
+// Render the "Includes" toggles section
+function _renderToggles() {
+  const section = document.getElementById('ingModalToggles');
+  const list    = document.getElementById('ingModalToggleItems');
+
+  if (!ingModalToggles.length) {
+    section.classList.add('hidden');
+    return;
+  }
+  section.classList.remove('hidden');
+
+  list.innerHTML = ingModalToggles.map(tog => `
+    <div class="ing-toggle-row${tog.is_default ? '' : ' removed'}" id="ing_tog_row_${tog.id}">
+      <span class="text-sm font-medium text-white">${escHtml(tog.name)}</span>
+      <label class="ing-toggle-switch" title="${tog.is_default ? 'Tap to remove' : 'Tap to include'}">
+        <input type="checkbox" id="ing_${tog.id}" ${tog.is_default ? 'checked' : ''}
+          onchange="_onToggleChange(${tog.id})"/>
+        <span class="ing-toggle-slider"></span>
+      </label>
+    </div>`).join('');
+}
+
+function _onToggleChange(togId) {
+  const cb  = document.getElementById(`ing_${togId}`);
+  const row = document.getElementById(`ing_tog_row_${togId}`);
+  if (cb && row) row.classList.toggle('removed', !cb.checked);
+}
+
+function _renderIngGroups() {
+  const container = document.getElementById('ingModalGroups');
+  const itemKey   = `ig${ingModalItem.id}`;
+
+  container.innerHTML = ingModalGroups.map((group, gi) => {
+    const isRadio = group.input_type === 'radio';
+    const reqBadge = group.is_required
+      ? `<span class="text-xs px-2 py-0.5 rounded-full font-semibold" style="background:rgba(200,16,46,.18);color:#f87171;">${t('ing.modal_required')}</span>`
+      : `<span class="text-xs font-medium" style="color:rgba(255,255,255,.28);">${t('ing.modal_optional')}</span>`;
+
+    const options = group.options.map(opt => {
+      const priceTag = opt.price_delta > 0
+        ? `<span class="text-xs font-bold" style="color:#D4A017;">+ETB ${opt.price_delta.toFixed(2)}</span>`
+        : `<span class="text-xs" style="color:rgba(255,255,255,.2);">${t('ing.free')}</span>`;
+
+      return `
+        <label class="ing-option-label${opt.is_default ? ' selected' : ''}" id="ing_lbl_${opt.id}"
+          onclick="_onIngClick(${opt.id}, ${gi}, '${isRadio ? 'radio' : 'checkbox'}', '${itemKey}_g${gi}')">
+          <div class="flex items-center gap-3">
+            <input type="${isRadio ? 'radio' : 'checkbox'}"
+              name="${itemKey}_g${gi}"
+              id="ing_${opt.id}"
+              value="${opt.id}"
+              ${opt.is_default ? 'checked' : ''}
+              class="w-4 h-4 cursor-pointer flex-shrink-0"
+              style="accent-color:#C8102E;"
+              onchange="_updateIngPrice()"
+            />
+            <span class="text-sm font-medium text-white">${escHtml(opt.name)}</span>
+          </div>
+          ${priceTag}
+        </label>`;
+    }).join('');
+
+    return `
+      <div>
+        <div class="flex items-center gap-2 mb-2.5">
+          <p class="font-bold text-sm text-white">${escHtml(group.name)}</p>
+          ${reqBadge}
+        </div>
+        <div class="space-y-2">${options}</div>
+      </div>`;
+  }).join('');
+}
+
+function _onIngClick(optId, groupIdx, inputType, groupName) {
+  const group = ingModalGroups[groupIdx];
+  group.options.forEach(opt => {
+    const lbl = document.getElementById(`ing_lbl_${opt.id}`);
+    const inp = document.getElementById(`ing_${opt.id}`);
+    if (lbl && inp) lbl.classList.toggle('selected', inp.checked);
+  });
+  _updateIngPrice();
+}
+
+function _updateIngPrice() {
+  if (!ingModalItem) return;
+
+  let delta = 0;
+  let allRequiredMet = true;
+
+  ingModalGroups.forEach(group => {
+    const checked = group.options.filter(opt => {
+      const el = document.getElementById(`ing_${opt.id}`);
+      return el && el.checked;
+    });
+    checked.forEach(opt => delta += opt.price_delta);
+    if (group.is_required && checked.length === 0) allRequiredMet = false;
+  });
+
+  const adjusted = ingModalItem.price + delta;
+  document.getElementById('ingModalPrice').textContent = `ETB ${(adjusted * ingModalQtyVal).toFixed(2)}`;
+
+  const addBtn = document.getElementById('ingAddToCartBtn');
+  const hint   = document.getElementById('ingRequiredHint');
+  addBtn.disabled      = !allRequiredMet;
+  addBtn.style.opacity = allRequiredMet ? '1' : '0.4';
+  hint.classList.toggle('hidden', allRequiredMet);
+}
+
+function ingQtyChange(delta) {
+  ingModalQtyVal = Math.max(1, Math.min(50, ingModalQtyVal + delta));
+  document.getElementById('ingModalQty').textContent = ingModalQtyVal;
+  _updateIngPrice();
+}
+
+function addToCartFromModal() {
+  if (!ingModalItem || document.getElementById('ingAddToCartBtn').disabled) return;
+
+  // Collect checked add-on/choice options
+  const selectedCustomizations = [];
+  let priceDelta = 0;
+  ingModalGroups.forEach(group => {
+    group.options.forEach(opt => {
+      const el = document.getElementById(`ing_${opt.id}`);
+      if (el && el.checked) {
+        selectedCustomizations.push({ id: opt.id, group: opt.group_name, name: opt.name, price_delta: opt.price_delta });
+        priceDelta += opt.price_delta;
+      }
+    });
+  });
+
+  // Collect toggle removals (ingredients that were ON by default but turned OFF)
+  const removals = ingModalToggles.filter(tog => {
+    const el = document.getElementById(`ing_${tog.id}`);
+    // toggled OFF = not checked (was default = is_default true, now unchecked)
+    // also capture non-default ones that are now checked as "include" — but since we only track removals of default ones:
+    return tog.is_default && el && !el.checked;
+  }).map(tog => ({ id: tog.id, name: tog.name }));
+
+  // Special instructions
+  const specialInstructions = document.getElementById('ingSpecialInstructions').value.trim() || null;
+
+  const adjustedPrice = ingModalItem.price + priceDelta;
+
+  // Build cart key: itemId + customization IDs + removal IDs
+  const custPart    = selectedCustomizations.length ? `c${selectedCustomizations.map(c=>c.id).sort((a,b)=>a-b).join('-')}` : '';
+  const removalPart = removals.length ? `r${removals.map(r=>r.id).sort((a,b)=>a-b).join('-')}` : '';
+  const cartKey = [String(ingModalItem.id), custPart, removalPart].filter(Boolean).join(':');
+
+  if (cart[cartKey]) {
+    cart[cartKey].qty += ingModalQtyVal;
+    // Update special instructions with latest (last wins)
+    if (specialInstructions) cart[cartKey].specialInstructions = specialInstructions;
+  } else {
+    cart[cartKey] = {
+      item:                ingModalItem,
+      qty:                 ingModalQtyVal,
+      customizations:      selectedCustomizations,
+      removals,
+      specialInstructions,
+      adjustedPrice,
+      cartKey,
+    };
+  }
+
+  renderCart();
+  updateMenuCardQty(ingModalItem.id);
+  closeIngredientModal();
+  showToast(`${ingModalItem.name} added to cart!`, 'green');
+}
+
+// ── Loyalty ───────────────────────────────────────────────────────────────────
+let loyaltyActiveTab = 'points';
+
+function openLoyaltyPanel() {
+  const stored = localStorage.getItem('loyaltyIdentifier');
+  document.getElementById('loyaltyModal').classList.remove('hidden');
+  if (stored) {
+    // Go straight to dashboard
+    document.getElementById('loyaltySigninScreen').classList.add('hidden');
+    document.getElementById('loyaltyDashboard').classList.remove('hidden');
+    document.getElementById('loyaltyClaimSuccess').classList.add('hidden');
+    loadLoyaltyDashboard(stored);
+  } else {
+    document.getElementById('loyaltySigninScreen').classList.remove('hidden');
+    document.getElementById('loyaltyDashboard').classList.add('hidden');
+    document.getElementById('loyaltyClaimSuccess').classList.add('hidden');
+    document.getElementById('loyaltyIdentifierInput').value = '';
+    document.getElementById('loyaltyNameInput').value = '';
+    document.getElementById('loyaltySigninError').classList.add('hidden');
+  }
+}
+
+function closeLoyaltyModal() { document.getElementById('loyaltyModal').classList.add('hidden'); }
+
+async function loyaltySignIn() {
+  const identifier = document.getElementById('loyaltyIdentifierInput').value.trim();
+  const name       = document.getElementById('loyaltyNameInput').value.trim();
+  const errEl      = document.getElementById('loyaltySigninError');
+  errEl.classList.add('hidden');
+  if (!identifier) { errEl.textContent = t('loyalty.identifier_label') + ' required'; errEl.classList.remove('hidden'); return; }
+
+  const btn = document.getElementById('loyaltySigninBtn');
+  btn.disabled = true;
+  document.getElementById('loyaltySigninSpinner').classList.remove('hidden');
+  document.getElementById('loyaltySigninText').textContent = t('loyalty.signing_in');
+  try {
+    const res  = await fetch(`${API}/api/loyalty/join`, {
+      method: 'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ identifier, display_name: name || null }),
+    });
+    const data = await res.json();
+    if (!res.ok) { errEl.textContent = data.detail || t('err.network'); errEl.classList.remove('hidden'); return; }
+
+    localStorage.setItem('loyaltyIdentifier', identifier);
+    if (name) localStorage.setItem('loyaltyDisplayName', name);
+
+    document.getElementById('loyaltySigninScreen').classList.add('hidden');
+    document.getElementById('loyaltyDashboard').classList.remove('hidden');
+    loadLoyaltyDashboard(identifier);
+    updateNavBadge(data.points_balance ?? 0);
+  } catch(e) {
+    errEl.textContent = t('err.network'); errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    document.getElementById('loyaltySigninSpinner').classList.add('hidden');
+    document.getElementById('loyaltySigninText').textContent = t('loyalty.signin_btn');
+  }
+}
+
+async function loadLoyaltyDashboard(identifier) {
+  // Populate member bar
+  const displayName = localStorage.getItem('loyaltyDisplayName') || '';
+  document.getElementById('loyaltyMemberName').textContent       = displayName || t('loyalty.member_default');
+  document.getElementById('loyaltyMemberIdentifier').textContent = identifier;
+  document.getElementById('loyaltyAvatarCircle').textContent     = (displayName || identifier)[0].toUpperCase();
+
+  // Default to points tab
+  switchLoyaltyTab('points');
+
+  try {
+    const param = `identifier=${encodeURIComponent(identifier)}`;
+    const res   = await fetch(`${API}/api/loyalty/balance?${param}`);
+    if (!res.ok) return;
+    const data = await res.json();
+
+    // Update display name if server returned one
+    if (data.display_name) {
+      document.getElementById('loyaltyMemberName').textContent   = data.display_name;
+      document.getElementById('loyaltyAvatarCircle').textContent = data.display_name[0].toUpperCase();
+      localStorage.setItem('loyaltyDisplayName', data.display_name);
+    }
+
+    document.getElementById('loyaltyBalancePts').textContent  = data.points_balance;
+    document.getElementById('loyaltyTotalStats').textContent  = `${data.total_earned} earned · ${data.total_redeemed} redeemed`;
+
+    // Progress — show modular progress within 100-pt milestones
+    const balance = data.points_balance;
+    const mod     = balance > 0 ? balance % 100 : 0;
+    const pct     = Math.min(100, mod);
+    document.getElementById('loyaltyProgressFill').style.width = pct + '%';
+    document.getElementById('loyaltyProgressNum').textContent  = `${mod}/100`;
+    document.getElementById('loyaltyProgressHint').textContent =
+      balance === 0
+        ? t('loyalty.progress_start')
+        : mod === 0
+          ? t('loyalty.progress_ready', { balance })
+          : t('loyalty.progress_more', { more: 100 - mod });
+
+    updateNavBadge(data.points_balance);
+
+    // Transaction history
+    const histRes = await fetch(`${API}/api/loyalty/history?${param}`);
+    if (histRes.ok) {
+      const txns = await histRes.json();
+      const list = document.getElementById('loyaltyTxnList');
+      if (!txns.length) {
+        list.innerHTML = `<p class="text-xs text-center py-3" style="color:rgba(255,255,255,.25);">${t('loyalty.no_txns')}</p>`;
+      } else {
+        list.innerHTML = txns.map(t => `
+          <div class="flex items-center justify-between text-xs py-1.5 border-b" style="border-color:#1e1e1e;">
+            <div>
+              <span class="font-bold" style="color:${t.type==='earn'?'#4ade80':'#f87171'};">${t.type==='earn'?'+':'-'}${t.points} pts</span>
+              <span class="ml-1" style="color:rgba(255,255,255,.3);">${t.description||''}</span>
+            </div>
+            <span style="color:rgba(255,255,255,.2);">${new Date(t.created_at).toLocaleDateString()}</span>
+          </div>`).join('');
+      }
+    }
+  } catch(e) {}
+}
+
+function switchLoyaltyTab(tab) {
+  loyaltyActiveTab = tab;
+  const isPoints  = tab === 'points';
+  document.getElementById('loyaltyPointsPanel').classList.toggle('hidden',  !isPoints);
+  document.getElementById('loyaltyRewardsPanel').classList.toggle('hidden',  isPoints);
+  // Tab styles
+  const tabPts = document.getElementById('loyaltyTabPoints');
+  const tabRwd = document.getElementById('loyaltyTabRewards');
+  tabPts.style.color       = isPoints  ? '#D4A017' : 'rgba(255,255,255,.4)';
+  tabPts.style.borderColor = isPoints  ? '#D4A017' : 'transparent';
+  tabRwd.style.color       = !isPoints ? '#D4A017' : 'rgba(255,255,255,.4)';
+  tabRwd.style.borderColor = !isPoints ? '#D4A017' : 'transparent';
+  if (!isPoints) loadLoyaltyRewards();
+}
+
+async function loadLoyaltyRewards() {
+  const identifier = localStorage.getItem('loyaltyIdentifier');
+  if (!identifier) return;
+  const list = document.getElementById('loyaltyRewardsList');
+  list.innerHTML = `<p class="text-xs text-center py-4" style="color:rgba(255,255,255,.3);">${t('loyalty.loading_rewards')}</p>`;
+  try {
+    const param   = `identifier=${encodeURIComponent(identifier)}`;
+    const res     = await fetch(`${API}/api/loyalty/rewards?${param}`);
+    const rewards = await res.json();
+    if (!res.ok || !Array.isArray(rewards) || !rewards.length) {
+      list.innerHTML = `<p class="text-xs text-center py-4" style="color:rgba(255,255,255,.3);">${t('loyalty.no_rewards')}</p>`;
+      return;
+    }
+    const balance = parseInt(document.getElementById('loyaltyBalancePts').textContent || '0');
+    document.getElementById('loyaltyRewardBalanceHint').textContent = `${t('loyalty.tab_points')}: ${balance} pts`;
+    list.innerHTML = '';
+    rewards.forEach(r => {
+      const canClaim      = r.can_claim;
+      const qtyRemaining  = r.quantity_limit != null ? r.quantity_limit - r.quantity_claimed : null;
+      const card          = document.createElement('div');
+      card.className      = 'rounded-xl p-4 border';
+      card.style.cssText  = `background:#1a1a1a; border-color:${canClaim ? 'rgba(212,160,23,.4)' : '#222'};`;
+      card.innerHTML = `
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex-1 min-w-0">
+            <p class="font-bold text-sm text-white truncate">${escHtml(r.name)}</p>
+            ${r.description ? `<p class="text-xs mt-0.5" style="color:rgba(255,255,255,.35);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${escHtml(r.description)}</p>` : ''}
+            <div class="flex items-center gap-3 mt-2 flex-wrap">
+              <span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background:rgba(212,160,23,.15); color:#D4A017;">${r.points_required} pts</span>
+              ${qtyRemaining != null ? `<span class="text-xs" style="color:rgba(255,255,255,.25);">${qtyRemaining} left</span>` : ''}
+              ${r.valid_until ? `<span class="text-xs" style="color:rgba(255,255,255,.25);">Until ${new Date(r.valid_until).toLocaleDateString()}</span>` : ''}
+            </div>
+          </div>
+          <button onclick="claimReward(${r.id},'${escHtml(r.name).replace(/'/g,"\\\'")}')"
+            class="btn flex-shrink-0 text-xs font-bold px-4 py-2 rounded-xl transition"
+            style="background:${canClaim ? '#D4A017' : '#2a2a2a'}; color:${canClaim ? '#111' : 'rgba(255,255,255,.25)'}; cursor:${canClaim ? 'pointer' : 'not-allowed'};"
+            ${!canClaim ? 'disabled' : ''}>
+            ${canClaim ? t('loyalty.claim_btn') : t('loyalty.need_pts')}
+          </button>
+        </div>`;
+      list.appendChild(card);
+    });
+  } catch(e) {
+    list.innerHTML = `<p class="text-xs text-center py-4" style="color:#f87171;">${t('err.network')}</p>`;
+  }
+}
+
+async function claimReward(rewardId, rewardName) {
+  const identifier = localStorage.getItem('loyaltyIdentifier');
+  if (!identifier) return;
+  const isEmail = identifier.includes('@');
+  try {
+    const res  = await fetch(`${API}/api/loyalty/rewards/${rewardId}/claim`, {
+      method: 'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ identifier }),
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.detail || 'Could not claim reward', 'red'); return; }
+    // Show success screen
+    document.getElementById('loyaltyDashboard').classList.add('hidden');
+    document.getElementById('loyaltyClaimSuccess').classList.remove('hidden');
+    document.getElementById('claimCodeDisplay').textContent = data.claim_code;
+    document.getElementById('claimRewardName').textContent  = rewardName;
+    refreshStoredLoyalty();
+  } catch(e) { showToast('Network error', 'red'); }
+}
+
+function backFromClaim() {
+  document.getElementById('loyaltyClaimSuccess').classList.add('hidden');
+  document.getElementById('loyaltyDashboard').classList.remove('hidden');
+  const identifier = localStorage.getItem('loyaltyIdentifier');
+  if (identifier) loadLoyaltyDashboard(identifier);
+  switchLoyaltyTab('rewards');
+}
+
+function loyaltySignOut() {
+  localStorage.removeItem('loyaltyIdentifier');
+  localStorage.removeItem('loyaltyDisplayName');
+  // Hide badge
+  document.getElementById('loyaltyBadge').classList.add('hidden');
+  document.getElementById('loyaltyBadge').classList.remove('flex');
+  // Show sign-in screen
+  document.getElementById('loyaltyDashboard').classList.add('hidden');
+  document.getElementById('loyaltyClaimSuccess').classList.add('hidden');
+  document.getElementById('loyaltySigninScreen').classList.remove('hidden');
+  document.getElementById('loyaltyIdentifierInput').value = '';
+  document.getElementById('loyaltyNameInput').value = '';
+  document.getElementById('loyaltySigninError').classList.add('hidden');
+}
+
+async function refreshStoredLoyalty() {
+  const identifier = localStorage.getItem('loyaltyIdentifier');
+  if (!identifier) return;
+  try {
+    const res  = await fetch(`${API}/api/loyalty/balance?identifier=${encodeURIComponent(identifier)}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    updateNavBadge(data.points_balance);
+  } catch(e) {}
+}
+
+function updateNavBadge(pts) {
+  const badge = document.getElementById('loyaltyBadge');
+  document.getElementById('loyaltyBadgeText').textContent = `${pts} pts`;
+  badge.classList.remove('hidden');
+  badge.classList.add('flex');
+}
+
+// ── Reviews ───────────────────────────────────────────────────────────────────
+async function loadReviewSummary() {
+  try {
+    const res  = await fetch(`${API}/api/reviews/summary`);
+    const data = await res.json();
+    const avg  = data.average || 0;
+    const cnt  = data.count   || 0;
+    if (cnt > 0) {
+      document.getElementById('heroRatingText').textContent = `${avg} stars (${cnt} reviews)`;
+      document.getElementById('avgRatingText').textContent  = `${avg} out of 5 (${cnt} reviews)`;
+      document.getElementById('avgStars').innerHTML = renderStars(avg);
+    }
+  } catch(e) {}
+}
+
+async function loadReviews() {
+  try {
+    const res     = await fetch(`${API}/api/reviews?limit=9`);
+    const reviews = await res.json();
+    const grid    = document.getElementById('reviewsGrid');
+    const empty   = document.getElementById('reviewsEmpty');
+    grid.innerHTML = '';
+    if (!reviews.length) { empty.classList.remove('hidden'); return; }
+
+    // Check if this browser has a saved review
+    const myReview = getMyReview();
+
+    reviews.forEach((r, i) => {
+      const isMyReview = myReview && myReview.id === r.id;
+      const card = document.createElement('div');
+      card.className = 'bg-white rounded-2xl p-5 border fade-in' + (isMyReview ? ' border-amber-300' : ' border-gray-100');
+      card.style.animationDelay = i * 50 + 'ms';
+
+      // Admin reply block
+      const replyHtml = r.admin_reply ? `
+        <div class="mt-3 pt-3 border-t border-gray-100">
+          <div class="flex items-start gap-2">
+            <div class="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center mt-0.5" style="background:#C8102E;">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
+            </div>
+            <div>
+              <p class="text-xs font-bold text-gray-500 mb-0.5">${t('reviews.reply_from')}</p>
+              <p class="text-sm text-gray-700 leading-relaxed">${escHtml(r.admin_reply)}</p>
+            </div>
+          </div>
+        </div>` : '';
+
+      card.innerHTML = `
+        <div class="flex items-start justify-between mb-3">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm text-white flex-shrink-0" style="background:${isMyReview ? '#D4A017' : '#C8102E'};">
+              ${escHtml(r.reviewer_name[0].toUpperCase())}
+            </div>
+            <div>
+              <div class="flex items-center gap-1.5">
+                <p class="font-bold text-sm text-gray-900">${escHtml(r.reviewer_name)}</p>
+                ${isMyReview ? `<span class="text-xs px-1.5 py-0.5 rounded-full font-semibold" style="background:#fef3c7;color:#92400e;">${t('reviews.you_badge')}</span>` : ''}
+              </div>
+              <p class="text-xs text-gray-400">${new Date(r.created_at).toLocaleDateString()}</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="flex gap-0.5">${renderStars(r.rating, 14)}</div>
+            ${isMyReview ? `<button onclick="openEditReviewModal()" class="btn text-xs px-2 py-1 rounded-lg font-semibold cursor-pointer transition" style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;" onmouseover="this.style.background='#ffedd5'" onmouseout="this.style.background='#fff7ed'">${t('reviews.edit_btn')}</button>` : ''}
+          </div>
+        </div>
+        ${r.comment ? `<p class="text-sm text-gray-600 leading-relaxed">${escHtml(r.comment)}</p>` : ''}
+        ${r.order_number ? `<p class="text-xs text-gray-300 mt-2 font-mono">${r.order_number}</p>` : ''}
+        ${replyHtml}
+      `;
+      grid.appendChild(card);
+    });
+  } catch(e) {
+    document.getElementById('reviewsGrid').innerHTML = '<p class="col-span-3 text-center text-red-400 text-sm py-6">Could not load reviews.</p>';
+  }
+}
+
+// ── My review localStorage helpers ────────────────────────────────────────────
+function getMyReview()  { try { return JSON.parse(localStorage.getItem('myReview')); } catch { return null; } }
+function saveMyReview(data) { localStorage.setItem('myReview', JSON.stringify(data)); }
+
+function renderStars(rating, size = 16) {
+  return [1,2,3,4,5].map(i =>
+    `<svg xmlns="http://www.w3.org/2000/svg" style="width:${size}px;height:${size}px;color:${i <= Math.round(rating) ? '#D4A017' : '#e5e7eb'};" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>`
+  ).join('');
+}
+
+function openReviewModal() {
+  // New review mode — clear hidden edit fields and banner
+  document.getElementById('reviewEditId').value    = '';
+  document.getElementById('reviewEditToken').value = '';
+  document.getElementById('reviewModalTitle').textContent = t('review.modal_title');
+  document.getElementById('reviewEditBanner').classList.add('hidden');
+  document.getElementById('reviewSubmitText').textContent = t('review.submit_btn');
+  // Clear form
+  document.getElementById('reviewName').value    = '';
+  document.getElementById('reviewComment').value = '';
+  document.getElementById('reviewOrder').value   = '';
+  document.querySelectorAll('input[name="reviewRating"]').forEach(r => r.checked = false);
+  document.getElementById('reviewError').classList.add('hidden');
+  document.getElementById('reviewModal').classList.remove('hidden');
+}
+
+function openEditReviewModal() {
+  const saved = getMyReview();
+  if (!saved) { showToast('No saved review found.', 'red'); return; }
+  // Pre-fill form with saved data
+  document.getElementById('reviewEditId').value    = saved.id;
+  document.getElementById('reviewEditToken').value = saved.token;
+  document.getElementById('reviewModalTitle').textContent = t('review.edit_title');
+  document.getElementById('reviewEditBanner').classList.remove('hidden');
+  document.getElementById('reviewSubmitText').textContent = t('review.save_btn');
+  // Fill values from saved cache
+  document.getElementById('reviewName').value    = saved.reviewer_name || '';
+  document.getElementById('reviewComment').value = saved.comment || '';
+  document.getElementById('reviewOrder').value   = saved.order_number || '';
+  const ratingInput = document.querySelector(`input[name="reviewRating"][value="${saved.rating}"]`);
+  if (ratingInput) ratingInput.checked = true;
+  document.getElementById('reviewError').classList.add('hidden');
+  document.getElementById('reviewModal').classList.remove('hidden');
+}
+
+function closeReviewModal() {
+  document.getElementById('reviewModal').classList.add('hidden');
+  document.getElementById('reviewError').classList.add('hidden');
+}
+
+async function submitReview() {
+  const name    = document.getElementById('reviewName').value.trim();
+  const rating  = document.querySelector('input[name="reviewRating"]:checked')?.value;
+  const comment = document.getElementById('reviewComment').value.trim();
+  const order   = document.getElementById('reviewOrder').value.trim();
+  const editId  = document.getElementById('reviewEditId').value;
+  const editTok = document.getElementById('reviewEditToken').value;
+  const isEdit  = !!(editId && editTok);
+  const errEl   = document.getElementById('reviewError');
+  errEl.classList.add('hidden');
+
+  if (!name)   { errEl.textContent = t('err.review_name'); errEl.classList.remove('hidden'); return; }
+  if (!rating) { errEl.textContent = t('err.review_rating'); errEl.classList.remove('hidden'); return; }
+
+  const btn = document.getElementById('reviewSubmitBtn');
+  btn.disabled = true;
+  document.getElementById('reviewSpinner').classList.remove('hidden');
+  document.getElementById('reviewSubmitText').textContent = isEdit ? t('review.saving') : t('review.submitting');
+
+  const payload = { reviewer_name:name, rating:parseInt(rating), comment:comment||null, order_number:order||null };
+
+  try {
+    let res;
+    if (isEdit) {
+      res = await fetch(`${API}/api/reviews/${editId}?token=${encodeURIComponent(editTok)}`, {
+        method: 'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(payload),
+      });
+    } else {
+      res = await fetch(`${API}/api/reviews`, {
+        method: 'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(payload),
+      });
+    }
+
+    if (res.ok) {
+      const data = await res.json();
+      // Persist review info for future edits
+      saveMyReview({
+        id:            data.id,
+        token:         isEdit ? editTok : data.edit_token,
+        reviewer_name: data.reviewer_name,
+        rating:        data.rating,
+        comment:       data.comment,
+        order_number:  data.order_number,
+      });
+      closeReviewModal();
+      loadReviews();
+      loadReviewSummary();
+      showToast(isEdit ? 'Review updated!' : 'Thank you for your review!', 'green');
+    } else {
+      const d = await res.json();
+      errEl.textContent = d.detail || 'Submission failed'; errEl.classList.remove('hidden');
+    }
+  } catch(e) {
+    errEl.textContent = t('err.network'); errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    document.getElementById('reviewSpinner').classList.add('hidden');
+    document.getElementById('reviewSubmitText').textContent = isEdit ? t('review.save_btn') : t('review.submit_btn');
+  }
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────────
+function showToast(msg, type = 'green') {
+  const colors = { green:'#16A34A', red:'#DC2626', yellow:'#D4A017', blue:'#2563EB' };
+  const t = document.getElementById('toast');
+  t.style.background = colors[type] || colors.green;
+  t.innerHTML = `<span>${escHtml(msg)}</span>`;
+  t.classList.remove('hidden');
+  t.style.animation = 'none';
+  requestAnimationFrame(() => { t.style.animation = ''; });
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.add('hidden'), 3000);
+}
+
+// ── Utils ──────────────────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ── Category bar All-Items button ──────────────────────────────────────────────
+document.querySelector('.cat-btn[data-cat=""]').onclick = function() { filterCategory('', this); };
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TRANSLATIONS  (English + አማርኛ)
+// ══════════════════════════════════════════════════════════════════════════════
+const TRANSLATIONS = {
+  en: {
+    // Navbar
+    'nav.tagline':        'Online Ordering',
+    'nav.cart':           'Cart',
+    'nav.staff_login':    'Staff Login',
+    // Hero
+    'hero.badge':         'Fresh Wok-Fried Chaofan',
+    'hero.title_line1':   'Order Fresh,',
+    'hero.title_line2':   'Eat Well.',
+    'hero.subtitle':      'Sizzling chaofan made to order in the wok. Order online and pick up when it\'s ready — no wait, no rush.',
+    'hero.order_now':     'Order Now',
+    'hero.see_reviews':   'See Reviews',
+    // Loyalty strip
+    'strip.title':        'Loyalty Rewards',
+    'strip.subtitle':     'Earn 1 pt per ETB 10 spent · Redeem for free items',
+    'strip.cta':          'Check My Points',
+    // Menu
+    'menu.eyebrow':       'Our Menu',
+    'menu.heading':       'Pick Your Favourites',
+    'menu.all':           'All Items',
+    'menu.pts_suffix':    'pts',
+    // How it works
+    'how.eyebrow':        'Simple & Fast',
+    'how.heading':        'How It Works',
+    'how.step1_title':    '1. Browse the Menu',
+    'how.step1_desc':     'Explore traditional dishes and add favourites to your cart',
+    'how.step2_title':    '2. Pay Securely',
+    'how.step2_desc':     'Online via Chapa / Telebirr or cash at pickup',
+    'how.step3_title':    '3. Pick Up & Enjoy',
+    'how.step3_desc':     'Show your receipt code and get your freshly made food',
+    // Reviews
+    'reviews.eyebrow':    'Customer Reviews',
+    'reviews.heading':    'What People Say',
+    'reviews.write_btn':  'Write a Review',
+    'reviews.empty':      'No reviews yet. Be the first!',
+    'reviews.you_badge':  'You',
+    'reviews.edit_btn':   'Edit',
+    'reviews.reply_from': 'Reply from Taste of Ethiopia',
+    // Footer
+    'footer.copy':        '© 2025 Taste of Ethiopia · All rights reserved',
+    // Cart
+    'cart.title':         'Your Cart',
+    'cart.empty':         'Your cart is empty',
+    'cart.total':         'Total',
+    'cart.checkout':      'Proceed to Checkout',
+    'cart.earn_preview':  'Earn {pts} points with this order',
+    // Checkout
+    'checkout.title':         'Checkout',
+    'checkout.summary':       'Order Summary',
+    'checkout.name_label':    'Full Name *',
+    'checkout.name_ph':       'Abebe Girma',
+    'checkout.phone_label':   'Phone Number',
+    'checkout.email_label':   'Email',
+    'checkout.email_note':    '(required for online pay)',
+    'checkout.notes_label':   'Special Instructions',
+    'checkout.notes_ph':      'Any dietary requirements or notes…',
+    'checkout.payment_title': 'Payment Method',
+    'checkout.online_label':  'Online Payment',
+    'checkout.cash_label':    'Cash',
+    'checkout.cash_sub':      'Pay at pickup',
+    'checkout.place_order':   'Place Order',
+    'checkout.placing':       'Placing Order…',
+    'checkout.earn_hint':     'Place order → earn {pts} loyalty points',
+    // Errors
+    'err.name_required':      'Please enter your full name',
+    'err.email_required':     'Email is required for online payment',
+    'err.network':            'Network error. Please try again.',
+    'err.payment_failed':     'Payment initialization failed',
+    'err.review_name':        'Please enter your name.',
+    'err.review_rating':      'Please select a star rating.',
+    // Review modal
+    'review.modal_title':     'Write a Review',
+    'review.edit_title':      'Edit Your Review',
+    'review.edit_banner':     'Editing your existing review',
+    'review.name_label':      'Your Name *',
+    'review.name_ph':         'Abebe Girma',
+    'review.rating_label':    'Rating *',
+    'review.comment_label':   'Your Review',
+    'review.comment_ph':      'Tell us about your experience…',
+    'review.order_label':     'Order Number',
+    'review.submit_btn':      'Submit Review',
+    'review.save_btn':        'Save Changes',
+    'review.submitting':      'Submitting…',
+    'review.saving':          'Saving…',
+    // Common
+    'common.optional':        '(optional)',
+    'common.done':            'Done',
+    'common.close':           'Close',
+    'common.continue':        'Continue Ordering',
+    // Loyalty modal
+    'loyalty.title':          'Loyalty Rewards',
+    'loyalty.signin_desc':    'Earn 1 point for every ETB 10 spent. Sign in with your phone or email to track your points and claim rewards.',
+    'loyalty.identifier_label':'Phone or Email *',
+    'loyalty.identifier_ph':  '+251 9xx xxx xxx  or  email@example.com',
+    'loyalty.name_label':     'Your Name',
+    'loyalty.name_ph':        'Abebe Girma',
+    'loyalty.signin_btn':     'Sign In / Join',
+    'loyalty.member_default': 'Member',
+    'loyalty.signing_in':     'Signing in…',
+    'loyalty.rate_hint':      '10 ETB = 1 point · Redeem points for free items',
+    'loyalty.signout':        'Sign out',
+    'loyalty.tab_points':     'My Points',
+    'loyalty.tab_rewards':    'Rewards',
+    'loyalty.progress_label': 'Next reward progress',
+    'loyalty.progress_start': 'Place an order to start earning points!',
+    'loyalty.progress_ready': 'You have {balance} pts — check Rewards to claim!',
+    'loyalty.progress_more':  '{more} more points until the next 100-pt milestone',
+    'loyalty.activity_title': 'Recent Activity',
+    'loyalty.no_txns':        'No transactions yet',
+    'loyalty.no_rewards':     'No rewards available right now. Check back soon!',
+    'loyalty.loading_rewards':'Loading rewards…',
+    'loyalty.claimed_title':  'Reward Claimed!',
+    'loyalty.claimed_desc':   'Show this code at the counter to collect your reward:',
+    'loyalty.back_btn':       'Back to My Rewards',
+    'loyalty.claim_btn':      'Claim',
+    'loyalty.need_pts':       'Need pts',
+    // Ingredient modal
+    'ing.modal_required':     'Required',
+    'ing.modal_optional':     'Optional',
+    'ing.add_to_cart':        'Add to Cart',
+    'ing.required_hint':      'Please complete required selections above',
+    'ing.free':               'Free',
+    // Order success
+    'success.cash_title':     'Order Placed!',
+    'success.cash_sub':       'Your order is confirmed. Please pay at the counter.',
+    'success.order_number':   'Order Number',
+    'success.total':          'Total',
+    'success.payment':        'Payment',
+    'success.cash_payment':   'Cash on Pickup',
+    'success.cash_hint':      'Keep your order number handy for pickup.',
+    'success.paid_title':     'Payment Confirmed!',
+    'success.paid_sub':       'Your order is being prepared.',
+    'success.order':          'Order',
+    'success.status':         'Status',
+    'success.paid_status':    'Paid',
+    'success.receipt_hint':   'Show this receipt code to collect your order.',
+    'success.pay_failed':     'Payment Not Confirmed',
+    // Payment return banner
+    'payment.verifying':      'Verifying your payment…',
+  },
+  am: {
+    // Navbar
+    'nav.tagline':        'የኦንላይን ትዕዛዝ',
+    'nav.cart':           'ጋሪ',
+    'nav.staff_login':    'ሰራተኛ ግቤት',
+    // Hero
+    'hero.badge':         'ትኩስ ቻውፋን',
+    'hero.title_line1':   'ትኩስ ዕዝ ይስጡ,',
+    'hero.title_line2':   'ጥሩ ይብሉ።',
+    'hero.subtitle':      'በምድጃ ላይ ትኩስ የሚሰራ ቻውፋን። ኦንላይን ዕዝ ይስጡ — ሲዘጋጅ ይቀበሉ።',
+    'hero.order_now':     'አሁን ዕዝ ይስጡ',
+    'hero.see_reviews':   'ግምገማ ይመልከቱ',
+    // Loyalty strip
+    'strip.title':        'የታማኝነት ሽልማቶች',
+    'strip.subtitle':     'በ10 ብር 1 ነጥብ ያዙ · ለነጻ ዕቃዎች ይቀይሩ',
+    'strip.cta':          'ነጥቦቼን ይፈትሹ',
+    // Menu
+    'menu.eyebrow':       'ምናሌያችን',
+    'menu.heading':       'ተወዳጆቻቸውን ይምረጡ',
+    'menu.all':           'ሁሉም',
+    'menu.pts_suffix':    'ነጥብ',
+    // How it works
+    'how.eyebrow':        'ቀላልና ፈጣን',
+    'how.heading':        'እንዴት ይሰራል',
+    'how.step1_title':    '1. ምናሌ ይፈልሱ',
+    'how.step1_desc':     'ባህላዊ ምግቦችን ያሳስሱ እና ወደ ጋሪዎ ያክሉ',
+    'how.step2_title':    '2. በደህንነት ይክፈሉ',
+    'how.step2_desc':     'በቻፓ፣ ቴሌቢር ወይም ሲወስዱ በጥሬ ገንዘብ',
+    'how.step3_title':    '3. ይቀበሉ እና ይደሰቱ',
+    'how.step3_desc':     'የደረሰኝ ኮዱን ያሳዩ እና ትኩስ ምግብዎን ይቀበሉ',
+    // Reviews
+    'reviews.eyebrow':    'የደንበኛ ግምገማዎች',
+    'reviews.heading':    'ሰዎች ምን ይላሉ',
+    'reviews.write_btn':  'ግምገማ ይጻፉ',
+    'reviews.empty':      'እስካሁን ምንም ግምገማ የለም። የመጀመሪያ ይሁኑ!',
+    'reviews.you_badge':  'እርስዎ',
+    'reviews.edit_btn':   'አርትዕ',
+    'reviews.reply_from': 'የ Taste of Ethiopia ምላሽ',
+    // Footer
+    'footer.copy':        '© 2025 Taste of Ethiopia · መብቱ በህግ የተጠበቀ ነው',
+    // Cart
+    'cart.title':         'የእርስዎ ጋሪ',
+    'cart.empty':         'ጋሪዎ ባዶ ነው',
+    'cart.total':         'ጠቅላላ',
+    'cart.checkout':      'ወደ ክፍያ ይሂዱ',
+    'cart.earn_preview':  'ከዚህ ትዕዛዝ {pts} ነጥቦች ያዙ',
+    // Checkout
+    'checkout.title':         'ክፍያ',
+    'checkout.summary':       'የትዕዛዝ ማጠቃለያ',
+    'checkout.name_label':    'ሙሉ ስም *',
+    'checkout.name_ph':       'አበበ ግርማ',
+    'checkout.phone_label':   'ስልክ ቁጥር',
+    'checkout.email_label':   'ኢሜይል',
+    'checkout.email_note':    '(ለኦንላይን ክፍያ ያስፈልጋል)',
+    'checkout.notes_label':   'ልዩ ማስታወሻ',
+    'checkout.notes_ph':      'ማናቸውም ፍላጎቶች ወይም ማስታወሻ…',
+    'checkout.payment_title': 'የክፍያ ዘዴ',
+    'checkout.online_label':  'የኦንላይን ክፍያ',
+    'checkout.cash_label':    'ጥሬ ገንዘብ',
+    'checkout.cash_sub':      'ሲወስዱ ይክፈሉ',
+    'checkout.place_order':   'ትዕዛዝ ስጡ',
+    'checkout.placing':       'ትዕዛዝ እየቀረበ ነው…',
+    'checkout.earn_hint':     'ትዕዛዝ ስጡ → {pts} ነጥቦች ያዙ',
+    // Errors
+    'err.name_required':      'እባክዎ ሙሉ ስምዎን ያስገቡ',
+    'err.email_required':     'ለኦንላይን ክፍያ ኢሜይል ያስፈልጋል',
+    'err.network':            'የአውታረ መረብ ስህተት። እንደገና ይሞክሩ።',
+    'err.payment_failed':     'ክፍያ ጀምሮ አልተሳካም',
+    'err.review_name':        'እባክዎ ስምዎን ያስገቡ።',
+    'err.review_rating':      'እባክዎ የኮከብ ደረጃ ይምረጡ።',
+    // Review modal
+    'review.modal_title':     'ግምገማ ይጻፉ',
+    'review.edit_title':      'ግምገማዎን ያርትዑ',
+    'review.edit_banner':     'ያለዎትን ግምገማ እያረቱ ነው',
+    'review.name_label':      'ስምዎ *',
+    'review.name_ph':         'አበበ ግርማ',
+    'review.rating_label':    'ደረጃ *',
+    'review.comment_label':   'ግምገማዎ',
+    'review.comment_ph':      'ልምድዎን ያካፍሉን…',
+    'review.order_label':     'የትዕዛዝ ቁጥር',
+    'review.submit_btn':      'ግምገማ ያስገቡ',
+    'review.save_btn':        'ለውጦችን ያስቀምጡ',
+    'review.submitting':      'እየቀረበ ነው…',
+    'review.saving':          'እየተቀመጠ ነው…',
+    // Common
+    'common.optional':        '(አስፈላጊ አይደለም)',
+    'common.done':            'ተጠናቋል',
+    'common.close':           'ዝጋ',
+    'common.continue':        'ትዕዛዝ ይቀጥሉ',
+    // Loyalty modal
+    'loyalty.title':          'የታማኝነት ሽልማቶች',
+    'loyalty.signin_desc':    'ለ10 ብር 1 ነጥብ ያዙ። ነጥቦቻቸውን ለመከታተል እና ሽልማቶችን ለማዝዘዝ ስልክ ወይም ኢሜይልዎን ያስገቡ።',
+    'loyalty.identifier_label':'ስልክ ወይም ኢሜይል *',
+    'loyalty.identifier_ph':  '+251 9xx xxx xxx ወይም email@example.com',
+    'loyalty.name_label':     'ስምዎ',
+    'loyalty.name_ph':        'አበበ ግርማ',
+    'loyalty.signin_btn':     'ግቡ / ተቀላቀሉ',
+    'loyalty.member_default': 'አባል',
+    'loyalty.signing_in':     'እየገቡ ነው…',
+    'loyalty.rate_hint':      '10 ብር = 1 ነጥብ · ነጥቦቻቸውን ለነጻ ዕቃዎች ይቀይሩ',
+    'loyalty.signout':        'ውጡ',
+    'loyalty.tab_points':     'ነጥቦቼ',
+    'loyalty.tab_rewards':    'ሽልማቶች',
+    'loyalty.progress_label': 'ለቀጣዩ ሽልማት',
+    'loyalty.progress_start': 'ነጥቦችን ለማግኘት ትዕዛዝ ይስጡ!',
+    'loyalty.progress_ready': '{balance} ነጥብ አለዎት — ሽልማቶችን ይፈትሹ!',
+    'loyalty.progress_more':  'ለቀጣዩ 100-ነጥብ ምዕራፍ {more} ነጥቦች ይቀራሉ',
+    'loyalty.activity_title': 'የቅርብ ጊዜ እንቅስቃሴ',
+    'loyalty.no_txns':        'እስካሁን ምንም ግብይት የለም',
+    'loyalty.no_rewards':     'አሁን ምንም ሽልማቶች የሉም። ቆይ ይፈትሹ!',
+    'loyalty.loading_rewards':'ሽልማቶች እየተጫኑ ነው…',
+    'loyalty.claimed_title':  'ሽልማቱ ተወሰደ!',
+    'loyalty.claimed_desc':   'ሽልማትዎን ለማግኘት ይህን ኮድ ካውንተር ያሳዩ:',
+    'loyalty.back_btn':       'ወደ ሽልማቶቼ ተመለሱ',
+    'loyalty.claim_btn':      'ውሰዱ',
+    'loyalty.need_pts':       'ነጥቦች ያስፈልጋሉ',
+    // Ingredient modal
+    'ing.modal_required':     'አስፈላጊ',
+    'ing.modal_optional':     'አማራጭ',
+    'ing.add_to_cart':        'ወደ ጋሪ ጨምር',
+    'ing.required_hint':      'ከላይ ያሉ አስፈላጊ ምርጫዎችን ያጠናቅቁ',
+    'ing.free':               'ነጻ',
+    // Order success
+    'success.cash_title':     'ትዕዛዝ ቀርቧል!',
+    'success.cash_sub':       'ትዕዛዝዎ ተረጋግጧል። እባክዎ ካውንተር ያክፍሉ።',
+    'success.order_number':   'የትዕዛዝ ቁጥር',
+    'success.total':          'ጠቅላላ',
+    'success.payment':        'ክፍያ',
+    'success.cash_payment':   'ሲወስዱ በጥሬ ገንዘብ',
+    'success.cash_hint':      'ትዕዛዝ ቁጥርዎን ያቆዩ።',
+    'success.paid_title':     'ክፍያ ተረጋግጧል!',
+    'success.paid_sub':       'ትዕዛዝዎ እየተዘጋጀ ነው።',
+    'success.order':          'ትዕዛዝ',
+    'success.status':         'ሁኔታ',
+    'success.paid_status':    'ተከፍሏል',
+    'success.receipt_hint':   'ትዕዛዝዎን ለማግኘት የደረሰኝ ኮዱን ያሳዩ።',
+    'success.pay_failed':     'ክፍያ አልተረጋገጠም',
+    // Payment return banner
+    'payment.verifying':      'ክፍያዎን እያረጋገጥን…',
+  }
+};
+
+// ── Translation engine ────────────────────────────────────────────────────────
+let currentLang = localStorage.getItem('lang') || 'en';
+
+function t(key, vars = {}) {
+  const str = (TRANSLATIONS[currentLang] || TRANSLATIONS.en)[key]
+           ?? TRANSLATIONS.en[key]
+           ?? key;
+  return Object.entries(vars).reduce((s, [k, v]) => s.replaceAll(`{${k}}`, v), str);
+}
+
+function applyTranslations() {
+  // Update html lang attribute
+  document.documentElement.lang = currentLang === 'am' ? 'am' : 'en';
+
+  // Body class for Ethiopic font
+  document.body.classList.toggle('lang-am', currentLang === 'am');
+
+  // data-i18n → textContent
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.dataset.i18n;
+    // Skip dynamic elements managed by JS (ids with known dynamic state)
+    if (el.id === 'placeOrderText') return;  // managed by setPlaceLoading()
+    if (el.id === 'reviewSubmitText') return;  // managed by JS
+    if (el.id === 'loyaltySigninText') return; // managed by JS
+    if (el.id === 'heroRatingText') return; // managed separately below (may contain dynamic rating)
+    el.textContent = t(key);
+  });
+
+  // data-i18n-placeholder → placeholder attribute
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    el.placeholder = t(el.dataset.i18nPlaceholder);
+  });
+
+  // Loyalty identifier placeholder (inside loyalty modal)
+  const identInput = document.getElementById('loyaltyIdentifierInput');
+  if (identInput) identInput.placeholder = t('loyalty.identifier_ph');
+  const nameInput = document.getElementById('loyaltyNameInput');
+  if (nameInput) nameInput.placeholder = t('loyalty.name_ph');
+
+  // Re-render cart points preview if visible
+  const cartPts = document.getElementById('cartPointsPreview');
+  if (cartPts && cartPts.textContent) {
+    const match = cartPts.textContent.match(/\d+/);
+    if (match) cartPts.textContent = t('cart.earn_preview', { pts: match[0] });
+  }
+
+  // Update heroRatingText if it still shows default
+  const heroRating = document.getElementById('heroRatingText');
+  if (heroRating && (heroRating.textContent === 'See Reviews' || heroRating.textContent === TRANSLATIONS.am['hero.see_reviews'])) {
+    heroRating.textContent = t('hero.see_reviews');
+  }
+
+  // Toggle button styles
+  document.getElementById('langEN').classList.toggle('active', currentLang === 'en');
+  document.getElementById('langAM').classList.toggle('active', currentLang === 'am');
+
+  // placeOrderText — only update if not mid-request
+  const pot = document.getElementById('placeOrderText');
+  if (pot && !document.getElementById('placeOrderBtn').disabled) {
+    pot.textContent = t('checkout.place_order');
+  }
+}
+
+function setLanguage(lang) {
+  if (lang === currentLang) return;
+  currentLang = lang;
+  localStorage.setItem('lang', lang);
+  applyTranslations();
+}
+
+init();
+
+// ── Payment tile selection ─────────────────────────────────────────────────────
+function selectPayTile(label, value) {
+  document.querySelectorAll('.pay-tile').forEach(t => {
+    t.style.borderColor = '#e5e7eb';
+    t.style.background  = '#fff';
+  });
+  label.style.borderColor = '#C8102E';
+  label.style.background  = '#fff5f5';
+  label.querySelector('input[type=radio]').checked = true;
+  // Show/hide email field based on method
+  const emailRow = document.getElementById('custEmail')?.closest('div');
+  const emailNote = document.querySelector('[data-i18n="checkout.email_note"]');
+  const needsEmail = value === 'online';
+  if (emailRow)  emailRow.style.opacity = needsEmail ? '1' : '0.5';
+  if (emailNote) emailNote.style.display = needsEmail ? '' : 'none';
+}
+
+// ── Promo code ─────────────────────────────────────────────────────────────────
+let appliedPromo = null;
+
+async function applyPromo() {
+  const code = document.getElementById('promoInput').value.trim().toUpperCase();
+  const fb   = document.getElementById('promoFeedback');
+  if (!code) return;
+
+  const cartTotal = Object.values(cart).reduce((s, e) => s + e.adjustedPrice * e.qty, 0);
+  document.getElementById('promoApplyBtn').disabled = true;
+  document.getElementById('promoApplyBtn').textContent = '…';
+
+  try {
+    const res  = await fetch(`${API}/api/promos/${encodeURIComponent(code)}?order_total=${cartTotal.toFixed(2)}`);
+    const data = await res.json();
+    if (res.ok) {
+      appliedPromo = { code: data.code, discount: data.discount_etb };
+      fb.style.cssText = 'background:#f5f3ff; border:1px solid #c4b5fd; color:#6d28d9;';
+      fb.textContent   = `✓ ${data.description} — ETB ${data.discount_etb.toFixed(2)} off`;
+      fb.classList.remove('hidden');
+      // Reflect in cart total display
+      renderCart();
+    } else {
+      appliedPromo = null;
+      fb.style.cssText = 'background:#fef2f2; border:1px solid #fca5a5; color:#dc2626;';
+      fb.textContent   = data.detail || 'Invalid promo code';
+      fb.classList.remove('hidden');
+    }
+  } catch (e) {
+    appliedPromo = null;
+    fb.style.cssText = 'background:#fef2f2; border:1px solid #fca5a5; color:#dc2626;';
+    fb.textContent   = t('err.network');
+    fb.classList.remove('hidden');
+  } finally {
+    document.getElementById('promoApplyBtn').disabled = false;
+    document.getElementById('promoApplyBtn').textContent = t('checkout.promo_apply') || 'Apply';
+  }
+}
+
+// Patch placeOrder to include promo code and handle new payment methods
+const _origPlaceOrder = placeOrder;
+placeOrder = async function() {
+  const payMethod = document.querySelector('input[name="payMethod"]:checked')?.value || 'cash';
+
+  // For Telebirr/CBE, phone is required
+  const phone = document.getElementById('custPhone').value.trim();
+  if (['telebirr', 'cbebirr'].includes(payMethod) && !phone) {
+    showCheckoutError(t('err.phone_required') || 'Phone number is required for mobile payment');
+    return;
+  }
+
+  // Inject promo code into body by monkey-patching fetch temporarily
+  if (appliedPromo) {
+    const _origFetch = window.fetch;
+    window.fetch = function(url, opts) {
+      if (url && url.includes('/api/orders') && opts && opts.method === 'POST') {
+        try {
+          const body = JSON.parse(opts.body);
+          body.promo_code = appliedPromo.code;
+          opts.body = JSON.stringify(body);
+        } catch (_) {}
+        window.fetch = _origFetch;
+      }
+      return _origFetch.apply(this, arguments);
+    };
+  }
+
+  // Handle new payment methods
+  if (['telebirr', 'cbebirr'].includes(payMethod)) {
+    // Create order first, then initiate payment
+    const name  = document.getElementById('custName').value.trim();
+    const email = document.getElementById('custEmail').value.trim();
+    const notes = document.getElementById('custNotes').value.trim();
+    if (!name) { showCheckoutError(t('err.name_required')); return; }
+
+    const items = Object.values(cart).map(({ item, qty, customizations, removals, specialInstructions }) => ({
+      menu_item_id:          item.id,
+      quantity:              qty,
+      customizations:        (customizations || []).map(c => c.id),
+      removals:              (removals || []).map(r => r.id),
+      special_instructions:  specialInstructions || null,
+    }));
+    setPlaceLoading(true);
+    try {
+      const orderRes = await fetch(`${API}/api/orders`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          customer_name: name, customer_phone: phone||null, customer_email: email||null,
+          items, payment_method: payMethod, notes: notes||null,
+          promo_code: appliedPromo?.code || null,
+        }),
+      });
+      const order = await orderRes.json();
+      if (!orderRes.ok) { showCheckoutError(order.detail || 'Failed to place order'); return; }
+
+      // Initiate mobile payment
+      const payRes = await fetch(`${API}/api/payments/initiate`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ order_number: order.order_number, tx_ref: order.tx_ref, method: payMethod, customer_phone: phone }),
+      });
+      const payData = await payRes.json();
+
+      cart = {}; renderCart(); closeCheckout(); appliedPromo = null;
+
+      if (payData.status === 'sandbox_paid') {
+        // Sandbox: immediately confirmed
+        showCashConfirmation({ ...order, payment_method: payMethod });
+        return;
+      }
+
+      // Show waiting modal
+      showPayWait(order, payMethod, payData);
+    } catch (e) {
+      showCheckoutError(t('err.network'));
+    } finally {
+      setPlaceLoading(false);
+    }
+    return;
+  }
+
+  if (payMethod === 'bank_transfer') {
+    const name  = document.getElementById('custName').value.trim();
+    const phone = document.getElementById('custPhone').value.trim();
+    const email = document.getElementById('custEmail').value.trim();
+    const notes = document.getElementById('custNotes').value.trim();
+    if (!name) { showCheckoutError(t('err.name_required')); return; }
+
+    const items = Object.values(cart).map(({ item, qty, customizations, removals, specialInstructions }) => ({
+      menu_item_id: item.id, quantity: qty,
+      customizations: (customizations||[]).map(c=>c.id),
+      removals: (removals||[]).map(r=>r.id),
+      special_instructions: specialInstructions||null,
+    }));
+    setPlaceLoading(true);
+    try {
+      const orderRes = await fetch(`${API}/api/orders`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          customer_name: name, customer_phone: phone||null, customer_email: email||null,
+          items, payment_method: 'bank_transfer', notes: notes||null,
+          promo_code: appliedPromo?.code||null,
+        }),
+      });
+      const order = await orderRes.json();
+      if (!orderRes.ok) { showCheckoutError(order.detail || 'Failed to place order'); return; }
+
+      // Fetch bank details
+      const bankRes  = await fetch(`${API}/api/payments/bank-info`);
+      const bankData = bankRes.ok ? await bankRes.json() : {};
+
+      cart = {}; renderCart(); closeCheckout(); appliedPromo = null;
+      showBankModal(order, bankData);
+    } catch (e) {
+      showCheckoutError(t('err.network'));
+    } finally {
+      setPlaceLoading(false);
+    }
+    return;
+  }
+
+  // Fall through to original handler for online/cash
+  await _origPlaceOrder();
+};
+
+// ── Payment waiting modal ─────────────────────────────────────────────────────
+let _payWaitOrder = null;
+let _payWaitTimer = null;
+let _payWaitPoll  = null;
+let _payWaitSecs  = 1800; // 30 min
+
+function showPayWait(order, method, payData) {
+  _payWaitOrder = order;
+  _payWaitSecs  = 1800;
+
+  const methodLabel = method === 'telebirr' ? 'Telebirr' : 'CBE Birr';
+  document.getElementById('payWaitTitle').textContent       = `Waiting for ${methodLabel}`;
+  document.getElementById('payWaitSub').textContent         = `Complete payment of ETB ${order.total_amount.toFixed(2)}`;
+  document.getElementById('payWaitInstruction').textContent = method === 'telebirr'
+    ? 'Open Telebirr app on your phone and approve the payment request.'
+    : 'Open CBE Birr app or scan the QR code to complete payment.';
+
+  const trackLink = document.getElementById('payWaitTrackLink');
+  trackLink.href  = `/track/${order.order_number}`;
+  trackLink.textContent = `Track Order ${order.order_number}`;
+
+  document.getElementById('payWaitModal').classList.remove('hidden');
+
+  // Countdown timer
+  _payWaitTimer = setInterval(() => {
+    _payWaitSecs--;
+    const m = Math.floor(_payWaitSecs / 60), s = _payWaitSecs % 60;
+    document.getElementById('payWaitCountdown').textContent =
+      `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    if (_payWaitSecs <= 0) closePayWait();
+  }, 1000);
+
+  // Poll payment status every 5 seconds
+  _payWaitPoll = setInterval(async () => {
+    try {
+      const res  = await fetch(`${API}/api/payments/status/${order.order_number}?tx_ref=${order.tx_ref}`);
+      const data = await res.json();
+      if (data.paid) {
+        closePayWait();
+        showCashConfirmation({ ...order, status: 'PAID' });
+      } else if (data.status === 'FAILED' || data.status === 'CANCELLED') {
+        closePayWait();
+        showCheckoutError('Payment failed. Please try again or choose a different method.');
+      }
+    } catch (_) {}
+  }, 5000);
+}
+
+function closePayWait() {
+  if (_payWaitTimer) clearInterval(_payWaitTimer);
+  if (_payWaitPoll)  clearInterval(_payWaitPoll);
+  document.getElementById('payWaitModal').classList.add('hidden');
+}
+
+// ── Bank transfer modal ────────────────────────────────────────────────────────
+let _bankOrder = null;
+
+function showBankModal(order, bankData) {
+  _bankOrder = order;
+  document.getElementById('bankDetails').innerHTML = `
+    <div class="flex justify-between text-sm"><span class="text-gray-500">Bank</span><span class="font-bold text-gray-900">${bankData.bank_name||'—'}</span></div>
+    <div class="flex justify-between text-sm"><span class="text-gray-500">Account</span><span class="font-mono font-bold text-gray-900">${bankData.account_number||'—'}</span></div>
+    <div class="flex justify-between text-sm"><span class="text-gray-500">Name</span><span class="font-bold text-gray-900">${bankData.account_name||'—'}</span></div>
+    <div class="flex justify-between text-sm border-t border-gray-200 pt-2 mt-1">
+      <span class="text-gray-500">Reference</span>
+      <span class="font-mono font-bold text-purple-700">${order.order_number}</span>
+    </div>
+    <div class="flex justify-between text-sm font-bold">
+      <span class="text-gray-700">Amount</span>
+      <span class="text-gray-900">ETB ${order.total_amount.toFixed(2)}</span>
+    </div>
+    <p class="text-xs text-gray-400 mt-1">${bankData.instructions||''}</p>
+  `;
+  document.getElementById('bankModal').classList.remove('hidden');
+}
+
+async function claimBankTransfer() {
+  if (!_bankOrder) return;
+  const bankRef = document.getElementById('bankRefInput').value.trim();
+  if (!bankRef) { alert('Please enter your bank transaction reference number'); return; }
+
+  const btn = document.getElementById('bankClaimBtn');
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const res = await fetch(`${API}/api/payments/bank-transfer/claim`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ order_number: _bankOrder.order_number, tx_ref: _bankOrder.tx_ref, bank_ref: bankRef }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      closeBankModal();
+      showCashConfirmation({ ..._bankOrder, payment_method: 'bank_transfer' });
+    } else {
+      alert(data.detail || 'Failed to submit transfer claim');
+    }
+  } catch (e) {
+    alert(t('err.network'));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = t('bank.claim') || "I've Made the Transfer";
+  }
+}
+
+function closeBankModal() {
+  document.getElementById('bankModal').classList.add('hidden');
+  document.getElementById('bankRefInput').value = '';
+}
+</script>
+</body>
+</html>

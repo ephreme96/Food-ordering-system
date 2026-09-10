@@ -1,0 +1,1283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Receipt Verifier — Taste of Ethiopia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@300;400;500;600;700&family=Noto+Sans+Ethiopic:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme:{ extend:{ fontFamily:{
+        sans: ['"DM Sans"','sans-serif'],
+        display: ['"Playfair Display"','serif'],
+      }}}
+    }
+  </script>
+  <style>
+    * { font-family: 'DM Sans', sans-serif; }
+    .font-display { font-family: 'Playfair Display', serif; }
+
+    body.lang-am, body.lang-am * {
+      font-family: 'Noto Sans Ethiopic', 'DM Sans', sans-serif !important;
+    }
+    body.lang-am .font-display {
+      font-family: 'Noto Sans Ethiopic', sans-serif !important;
+    }
+
+    /* Language toggle */
+    .lang-toggle {
+      display: flex; align-items: center; gap: 4px;
+      background: #f1f5f9; border: 1px solid #e2e8f0;
+      border-radius: 999px; padding: 3px 4px;
+    }
+    .lang-toggle button {
+      padding: 3px 10px; border-radius: 999px;
+      font-size: 11px; font-weight: 700; letter-spacing: .03em;
+      cursor: pointer; transition: all .15s ease; border: none;
+      color: #94a3b8; background: transparent;
+    }
+    .lang-toggle button.active {
+      background: white; color: #0f172a;
+      box-shadow: 0 1px 4px rgba(0,0,0,.1);
+    }
+    .lang-toggle button:not(.active):hover { color: #475569; }
+
+    @keyframes slideUp {
+      from { opacity:0; transform:translateY(16px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    @keyframes scaleIn {
+      from { opacity:0; transform:scale(0.96); }
+      to   { opacity:1; transform:scale(1); }
+    }
+    @keyframes scan { 0%{top:10%} 50%{top:88%} 100%{top:10%} }
+    @keyframes validPop {
+      0%   { transform:scale(0.88); opacity:0; }
+      60%  { transform:scale(1.04); }
+      100% { transform:scale(1); opacity:1; }
+    }
+    @keyframes invalidShake {
+      0%,100% { transform:translateX(0); }
+      20%     { transform:translateX(-8px); }
+      40%     { transform:translateX(8px); }
+      60%     { transform:translateX(-5px); }
+      80%     { transform:translateX(5px); }
+    }
+    @keyframes pulseGreen {
+      0%,100% { box-shadow:0 0 0 0 rgba(22,163,74,0.4); }
+      50%     { box-shadow:0 0 0 12px rgba(22,163,74,0); }
+    }
+    @keyframes confirmSlide {
+      from { opacity:0; transform:translateY(12px) scale(0.98); }
+      to   { opacity:1; transform:translateY(0) scale(1); }
+    }
+
+    .anim-1 { animation:slideUp .45s cubic-bezier(.16,1,.3,1) both; }
+    .anim-2 { animation:slideUp .45s .07s cubic-bezier(.16,1,.3,1) both; }
+    .anim-3 { animation:slideUp .45s .14s cubic-bezier(.16,1,.3,1) both; }
+
+    .valid-anim   { animation:validPop .45s cubic-bezier(.16,1,.3,1) both; }
+    .invalid-anim { animation:invalidShake .45s ease both; }
+    .confirm-anim { animation:confirmSlide .35s cubic-bezier(.16,1,.3,1) both; }
+
+    .card {
+      background:white;
+      border:1px solid #f1f5f9;
+      box-shadow:0 1px 3px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.04);
+    }
+
+    .btn { transition:all .15s ease; cursor:pointer; }
+    .btn:hover { transform:translateY(-1px); box-shadow:0 4px 12px rgba(0,0,0,.1); }
+    .btn:active { transform:scale(.97) translateY(0); box-shadow:none; }
+    .btn:disabled { opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; }
+
+    .mode-tab { transition:all .15s ease; cursor:pointer; }
+    .mode-tab.active { background:white; color:#0f172a; box-shadow:0 1px 4px rgba(0,0,0,.08); }
+    .mode-tab:not(.active) { color:#94a3b8; }
+    .mode-tab:not(.active):hover { color:#64748b; }
+
+    input:focus { outline:none; box-shadow:0 0 0 3px rgba(15,23,42,.08); border-color:#94a3b8; }
+
+    .confirm-btn-pulse { animation:pulseGreen 1.5s infinite; }
+
+    .status-badge {
+      display:inline-flex; align-items:center; gap:4px;
+      padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700; letter-spacing:.03em;
+    }
+
+    @media (prefers-reduced-motion:reduce) {
+      *,::before,::after { animation-duration:.01ms !important; transition-duration:.01ms !important; }
+    }
+  </style>
+</head>
+<body style="background:#f8fafc; min-height:100vh;">
+
+<script>
+  (function(){
+    const token = localStorage.getItem('token');
+    const user  = JSON.parse(localStorage.getItem('user') || 'null');
+    if (!token || !user || !['cashier','admin'].includes(user.role)) {
+      window.location.href = '/frontend/login.html';
+    }
+  })();
+</script>
+
+<!-- ── NAVBAR ──────────────────────────────────────────────────────────────── -->
+<nav style="background:rgba(255,255,255,.9); backdrop-filter:blur(16px); border-bottom:1px solid #f1f5f9; position:sticky; top:0; z-index:30;">
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
+    <div class="flex items-center gap-3 anim-1">
+      <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:#C8102E; box-shadow:0 4px 12px rgba(200,16,46,0.3);">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+        </svg>
+      </div>
+      <div>
+        <h1 class="font-display font-bold text-slate-900 text-sm leading-tight" data-i18n="nav.title">Receipt Verifier</h1>
+        <p class="text-xs text-slate-400 font-medium" id="cashierUser">Cashier</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <!-- Language Toggle -->
+      <div class="lang-toggle">
+        <button id="langEn" class="active" onclick="setLanguage('en')">EN</button>
+        <button id="langAm" onclick="setLanguage('am')">አማ</button>
+      </div>
+      <a href="/frontend/admin.html" id="adminLink" class="hidden text-xs text-slate-500 hover:text-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 hover:border-slate-300 sm:inline transition font-medium" data-i18n="nav.admin">
+        Admin Panel
+      </a>
+      <button onclick="openChangePwModal()" class="btn text-xs text-slate-500 hover:text-slate-800 px-2.5 py-1.5 rounded-lg border border-slate-200 hover:border-slate-300 transition font-medium" title="Change Password">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+      </button>
+      <button onclick="logout()" class="btn text-xs text-slate-500 hover:text-red-600 px-3 py-1.5 rounded-lg border border-slate-200 hover:border-red-200 transition font-medium" data-i18n="nav.signout">
+        Sign Out
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- ── CHANGE OWN PASSWORD MODAL (cashier) ─────────────────────────────────── -->
+<div id="changePwModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(15,23,42,0.7); backdrop-filter:blur(8px);">
+  <div class="card rounded-2xl w-full max-w-sm p-6 shadow-2xl">
+    <div class="flex items-center justify-between mb-5">
+      <div>
+        <h2 class="font-bold text-slate-900">Change Password</h2>
+        <p id="changePwUser" class="text-xs text-slate-400 mt-0.5"></p>
+      </div>
+      <button onclick="closeChangePwModal()" class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition cursor-pointer">
+        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="space-y-3">
+      <div>
+        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Current Password</label>
+        <input id="cpCurrent" type="password" placeholder="Your current password"
+          class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-white outline-none focus:border-slate-400" />
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">New Password</label>
+        <input id="cpNew" type="password" placeholder="Min 8 characters"
+          class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-white outline-none focus:border-slate-400" />
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Confirm New Password</label>
+        <input id="cpConfirm" type="password" placeholder="Repeat new password"
+          class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-white outline-none focus:border-slate-400" />
+      </div>
+      <p id="cpError" class="hidden text-xs text-red-600 bg-red-50 p-2 rounded-lg border border-red-100"></p>
+      <button onclick="submitChangePw()" id="cpSaveBtn"
+        class="btn w-full py-2.5 rounded-xl text-sm font-bold text-white"
+        style="background:#C8102E;">
+        Update Password
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+    <!-- ── LEFT ───────────────────────────────────────────────────────────── -->
+    <div class="space-y-5">
+
+      <!-- Step 1: Look Up card -->
+      <div class="card rounded-2xl p-6 anim-1">
+        <div class="flex items-center gap-2 mb-5">
+          <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style="background:#C8102E;">1</span>
+          <h2 class="font-bold text-slate-900 text-base" data-i18n="step1.title">Look Up Order</h2>
+        </div>
+
+        <!-- Mode tabs -->
+        <div class="flex gap-1 p-1 rounded-xl mb-5" style="background:#f1f5f9;">
+          <button onclick="setInputMode('code')" id="modeCode" class="mode-tab active flex-1 py-2 text-sm font-semibold rounded-lg flex items-center justify-center gap-1.5">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            <span data-i18n="tab.code">Enter Code</span>
+          </button>
+          <button onclick="setInputMode('scan')" id="modeScan" class="mode-tab flex-1 py-2 text-sm font-medium rounded-lg flex items-center justify-center gap-1.5">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9V6a2 2 0 012-2h2M15 4h2a2 2 0 012 2v3M9 20H6a2 2 0 01-2-2v-3m12 5h2a2 2 0 002-2v-3M9 9h6v6H9z"/></svg>
+            <span data-i18n="tab.scan">Scan QR</span>
+          </button>
+        </div>
+
+        <!-- Code input -->
+        <div id="codeInputSection">
+          <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2" data-i18n="input.label">Receipt Code or Token</label>
+          <input id="receiptInput" type="text"
+            placeholder="AB3XYZ8F2K or paste full token…"
+            class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm font-mono transition bg-white text-slate-900 placeholder-slate-300"
+            oninput="this.value = this.value.toUpperCase()"
+            onkeydown="if(event.key==='Enter') lookUpOrder()"
+            data-i18n-placeholder="input.placeholder"
+          />
+          <p class="text-xs text-slate-400 mt-1.5" data-i18n="input.hint">Enter the receipt code or scan the QR code.</p>
+          <button onclick="lookUpOrder()" id="lookupBtn"
+            class="btn w-full mt-4 font-bold py-3 rounded-xl text-sm text-white flex items-center justify-center gap-2" style="background:#C8102E;">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803a7.5 7.5 0 0010.607 0z"/>
+            </svg>
+            <span id="lookupBtnText" data-i18n="btn.lookup">Look Up Order</span>
+            <svg id="lookupSpinner" class="hidden animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- QR scan -->
+        <div id="scanSection" class="hidden">
+          <div class="relative bg-black rounded-xl overflow-hidden" style="aspect-ratio:1">
+            <video id="qrVideo" class="w-full h-full object-cover" playsinline></video>
+            <canvas id="qrCanvas" class="hidden"></canvas>
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div class="w-48 h-48 rounded-2xl relative" style="border:2px solid rgba(255,255,255,.6);">
+                <div class="absolute top-0 left-0 w-5 h-5 border-t-[3px] border-l-[3px] border-white rounded-tl-lg"></div>
+                <div class="absolute top-0 right-0 w-5 h-5 border-t-[3px] border-r-[3px] border-white rounded-tr-lg"></div>
+                <div class="absolute bottom-0 left-0 w-5 h-5 border-b-[3px] border-l-[3px] border-white rounded-bl-lg"></div>
+                <div class="absolute bottom-0 right-0 w-5 h-5 border-b-[3px] border-r-[3px] border-white rounded-br-lg"></div>
+                <div id="scanLine" class="absolute left-3 right-3 h-px bg-white opacity-80" style="top:50%;animation:scan 2s linear infinite;"></div>
+              </div>
+            </div>
+            <p class="absolute bottom-3 left-0 right-0 text-center text-white text-xs font-medium" data-i18n="scan.hint">Point camera at QR code</p>
+          </div>
+          <button onclick="stopScan(); setInputMode('code')"
+            class="btn w-full mt-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 flex items-center justify-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            <span data-i18n="btn.stopcam">Stop Camera</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Cash pending -->
+      <div class="card rounded-2xl p-6 anim-2">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-semibold text-slate-900 text-sm" data-i18n="cash.title">Cash Pending Orders</h3>
+          <button onclick="loadCashPending()" class="btn text-xs text-slate-500 hover:text-slate-800 font-semibold px-2 py-1 rounded-lg hover:bg-slate-100" data-i18n="btn.refresh">Refresh</button>
+        </div>
+        <div id="cashPendingList" class="space-y-2">
+          <p class="text-sm text-slate-400 text-center py-3" data-i18n="status.loading">Loading…</p>
+        </div>
+      </div>
+
+      <!-- Change Calculator -->
+      <div class="card rounded-2xl p-6 anim-2">
+        <h3 class="font-semibold text-slate-900 text-sm mb-4 flex items-center gap-2">
+          <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span data-i18n="calc.title">Change Calculator</span>
+        </h3>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5" data-i18n="calc.order_total">Order Total (ETB)</label>
+            <input id="calcOrderTotal" type="number" min="0" step="0.01" placeholder="0.00"
+              class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-white text-slate-900 font-mono"
+              oninput="calcChange()" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5" data-i18n="calc.customer_pays">Customer Pays (ETB)</label>
+            <div class="flex gap-2">
+              <input id="calcCustomerPays" type="number" min="0" step="0.01" placeholder="0.00"
+                class="flex-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-white text-slate-900 font-mono"
+                oninput="calcChange()" />
+            </div>
+            <!-- Quick denomination buttons -->
+            <div class="flex flex-wrap gap-1.5 mt-2">
+              <span class="text-xs text-slate-400 self-center" data-i18n="calc.quick">Quick:</span>
+              ${[10,20,50,100,200,500].map(v => `
+                <button onclick="setQuickAmount(${v})"
+                  class="btn px-2 py-1 text-xs font-semibold rounded-lg border border-slate-200 hover:border-slate-400 hover:bg-slate-50 text-slate-600">
+                  ${v}
+                </button>`).join('')}
+            </div>
+          </div>
+          <!-- Result -->
+          <div id="changeResult" class="hidden rounded-xl p-4 text-center">
+            <p class="text-xs font-semibold uppercase tracking-wide mb-1" id="changeLabel" data-i18n="calc.change">Change</p>
+            <p id="changeAmount" class="text-3xl font-extrabold"></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Promo Code Validator -->
+      <div class="card rounded-2xl p-6 anim-2">
+        <h3 class="font-semibold text-slate-900 text-sm mb-4 flex items-center gap-2">
+          <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+          <span data-i18n="promo.title">Promo Code Validator</span>
+        </h3>
+        <div class="flex gap-2 mb-3">
+          <input id="promoCodeInput" type="text" placeholder="PROMO20"
+            class="flex-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-white text-slate-900 font-mono uppercase"
+            oninput="this.value=this.value.toUpperCase()"
+            onkeydown="if(event.key==='Enter') checkPromoCode()" />
+          <button onclick="checkPromoCode()" id="promoCheckBtn"
+            class="btn px-4 py-2.5 rounded-xl text-sm font-semibold text-white"
+            style="background:#7c3aed;" data-i18n="btn.check">Check</button>
+        </div>
+        <div id="promoResult" class="hidden rounded-xl p-3 text-sm"></div>
+      </div>
+
+      <!-- End-of-Day Summary -->
+      <div class="card rounded-2xl p-6 anim-2">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-semibold text-slate-900 text-sm flex items-center gap-2">
+            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            <span data-i18n="eod.title">Session Summary</span>
+          </h3>
+          <button onclick="updateEodSummary()" class="btn text-xs text-slate-500 hover:text-slate-800 px-2 py-1 rounded-lg hover:bg-slate-100 font-semibold" data-i18n="btn.refresh">Refresh</button>
+        </div>
+        <div id="eodSummary" class="grid grid-cols-3 gap-3">
+          <div class="rounded-xl p-3 text-center" style="background:#f0fdf4; border:1px solid #dcfce7;">
+            <p id="eodCount" class="text-2xl font-extrabold text-green-700">0</p>
+            <p class="text-xs text-green-600 font-medium mt-0.5" data-i18n="eod.handovers">Handovers</p>
+          </div>
+          <div class="rounded-xl p-3 text-center" style="background:#eff6ff; border:1px solid #bfdbfe;">
+            <p id="eodTotal" class="text-2xl font-extrabold text-blue-700">0</p>
+            <p class="text-xs text-blue-600 font-medium mt-0.5" data-i18n="eod.total_etb">Total ETB</p>
+          </div>
+          <div class="rounded-xl p-3 text-center" style="background:#fefce8; border:1px solid #fef08a;">
+            <p id="eodRejected" class="text-2xl font-extrabold text-yellow-700">0</p>
+            <p class="text-xs text-yellow-600 font-medium mt-0.5" data-i18n="eod.rejected">Rejected</p>
+          </div>
+        </div>
+        <p class="text-xs text-slate-400 mt-3 text-center" data-i18n="eod.note">Counts orders verified this session</p>
+      </div>
+    </div>
+
+    <!-- ── RIGHT ──────────────────────────────────────────────────────────── -->
+    <div class="space-y-5">
+
+      <!-- Idle -->
+      <div id="resultIdle" class="card rounded-2xl p-8 text-center anim-3">
+        <div class="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style="background:#f1f5f9;">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803a7.5 7.5 0 0010.607 0z"/>
+          </svg>
+        </div>
+        <h3 class="font-bold text-slate-900 mb-1.5" data-i18n="idle.title">Ready to Verify</h3>
+        <p class="text-sm text-slate-400 leading-relaxed" data-i18n="idle.sub">Enter a receipt code or scan a QR code.<br>You'll confirm before handing over food.</p>
+        <div class="mt-6 grid grid-cols-2 gap-3 text-xs">
+          <div class="rounded-xl p-3 text-left" style="background:#f0fdf4; border:1px solid #dcfce7;">
+            <p class="font-semibold text-green-700 mb-1 flex items-center gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+              <span data-i18n="badge.valid">Valid &amp; Ready</span>
+            </p>
+            <p class="text-green-600" data-i18n="badge.valid.sub">Paid, not yet collected</p>
+          </div>
+          <div class="rounded-xl p-3 text-left" style="background:#fef2f2; border:1px solid #fecaca;">
+            <p class="font-semibold text-red-600 mb-1 flex items-center gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+              <span data-i18n="badge.taken">Already Taken</span>
+            </p>
+            <p class="text-red-500" data-i18n="badge.taken.sub">Order already picked up</p>
+          </div>
+          <div class="rounded-xl p-3 text-left" style="background:#fffbeb; border:1px solid #fde68a;">
+            <p class="font-semibold text-amber-700 mb-1 flex items-center gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z"/></svg>
+              <span data-i18n="badge.notready">Not Ready</span>
+            </p>
+            <p class="text-amber-600" data-i18n="badge.notready.sub">Payment pending / preparing</p>
+          </div>
+          <div class="rounded-xl p-3 text-left" style="background:#f8fafc; border:1px solid #e2e8f0;">
+            <p class="font-semibold text-slate-600 mb-1 flex items-center gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z"/></svg>
+              <span data-i18n="badge.invalid">Invalid Code</span>
+            </p>
+            <p class="text-slate-400" data-i18n="badge.invalid.sub">Code not found / tampered</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Step 2: CONFIRM card (shown after successful lookup) ──────────── -->
+      <div id="resultConfirm" class="hidden">
+        <div class="rounded-2xl p-5 mb-3 confirm-anim" style="background:#f0fdf4; border:2px solid #16A34A;">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background:#16A34A;">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4"/>
+              </svg>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="font-extrabold text-green-800 text-base" data-i18n="confirm.found">ORDER FOUND</h3>
+                <span id="confirmStatusBadge" class="status-badge"></span>
+              </div>
+              <p class="text-xs text-green-600 font-medium mt-0.5" data-i18n="confirm.review">Review details then confirm handover</p>
+            </div>
+          </div>
+          <div id="confirmOrderDetails" class="bg-white rounded-xl p-4 space-y-2 text-sm shadow-sm mb-4"></div>
+          <div class="flex items-center gap-2 mb-3 px-1">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z"/></svg>
+            <p class="text-xs text-amber-700 font-medium" data-i18n="confirm.warning">This action is <strong>permanent</strong> — the receipt will be burned and cannot be reused.</p>
+          </div>
+        </div>
+        <div class="flex gap-3">
+          <button onclick="resetVerifier()" class="btn flex-1 py-3 rounded-xl font-semibold text-sm border border-slate-200 text-slate-600 hover:bg-slate-50" data-i18n="btn.cancel">
+            Cancel
+          </button>
+          <button onclick="confirmHandover()" id="confirmBtn"
+            class="btn confirm-btn-pulse flex-[2] py-3 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2" style="background:#16A34A;">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+            </svg>
+            <span id="confirmBtnText" data-i18n="btn.confirm">CONFIRM HANDOVER</span>
+            <svg id="confirmSpinner" class="hidden animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- ── SUCCESS: Order handed over ────────────────────────────────────── -->
+      <div id="resultSuccess" class="hidden">
+        <div class="rounded-2xl p-5 mb-3 valid-anim" style="background:#f0fdf4; border:2px solid #16A34A;">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style="background:#16A34A;">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-xl font-extrabold text-green-800" data-i18n="success.title">ORDER HANDED OVER</h3>
+              <p class="text-sm text-green-600 font-medium" id="successMessage"></p>
+            </div>
+          </div>
+          <div id="successOrderDetails" class="bg-white rounded-xl p-4 space-y-2 text-sm shadow-sm"></div>
+        </div>
+        <button onclick="resetVerifier()" class="btn w-full py-3 rounded-xl font-semibold text-sm text-white" style="background:#C8102E;" data-i18n="btn.next">
+          Next Customer
+        </button>
+      </div>
+
+      <!-- ── ALREADY REDEEMED ────────────────────────────────────────────── -->
+      <div id="resultAlready" class="hidden">
+        <div class="rounded-2xl p-5 mb-3 invalid-anim" style="background:#fef2f2; border:2px solid #ef4444;">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 rounded-xl bg-red-500 flex items-center justify-center flex-shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-xl font-extrabold text-red-700" data-i18n="already.title">ORDER ALREADY COLLECTED</h3>
+              <p class="text-sm text-red-500 font-medium" data-i18n="already.sub">This receipt has already been used.</p>
+            </div>
+          </div>
+          <div id="alreadyDetails" class="bg-white rounded-xl p-4 text-sm shadow-sm space-y-1.5"></div>
+          <p class="mt-3 text-xs text-red-400 font-medium px-1" data-i18n="already.note">If this is an error, contact an admin to reset this order.</p>
+        </div>
+        <button onclick="resetVerifier()" class="btn w-full py-3 rounded-xl font-semibold text-sm text-white" style="background:#C8102E;" data-i18n="btn.back">
+          Back
+        </button>
+      </div>
+
+      <!-- ── NOT READY ───────────────────────────────────────────────────── -->
+      <div id="resultNotReady" class="hidden">
+        <div class="rounded-2xl p-5 mb-3" style="background:#fffbeb; border:2px solid #f59e0b; animation:confirmSlide .35s cubic-bezier(.16,1,.3,1) both;">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style="background:#f59e0b;">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z"/>
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-xl font-extrabold text-amber-800" data-i18n="notready.title">NOT READY</h3>
+              <p class="text-sm text-amber-600 font-medium" id="notReadyMessage"></p>
+            </div>
+          </div>
+          <div id="notReadyDetails" class="bg-white rounded-xl p-4 text-sm shadow-sm"></div>
+        </div>
+        <button onclick="resetVerifier()" class="btn w-full py-3 rounded-xl font-semibold text-sm text-white" style="background:#C8102E;" data-i18n="btn.back">
+          Back
+        </button>
+      </div>
+
+      <!-- ── INVALID ──────────────────────────────────────────────────────── -->
+      <div id="resultInvalid" class="hidden">
+        <div class="rounded-2xl p-5 mb-3 invalid-anim" style="background:#fef2f2; border:2px solid #ef4444;">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-12 h-12 rounded-xl bg-red-500 flex items-center justify-center flex-shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-xl font-extrabold text-red-700" data-i18n="invalid.title">INVALID RECEIPT</h3>
+              <p class="text-sm text-red-500 font-medium" id="invalidMessage"></p>
+            </div>
+          </div>
+        </div>
+        <button onclick="resetVerifier()" class="btn w-full py-3 rounded-xl font-semibold text-sm text-white" style="background:#C8102E;" data-i18n="btn.tryagain">
+          Try Again
+        </button>
+      </div>
+
+      <!-- History -->
+      <div class="card rounded-2xl p-5 anim-3">
+        <h3 class="font-semibold text-slate-900 text-sm mb-3" data-i18n="history.title">Recent Handovers</h3>
+        <div id="recentList" class="space-y-2">
+          <p class="text-sm text-slate-400 text-center py-2" data-i18n="history.empty">None yet this session</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── Translations ──────────────────────────────────────────────────────────────
+const TRANSLATIONS = {
+  en: {
+    'nav.title':           'Receipt Verifier',
+    'nav.admin':           'Admin Panel',
+    'nav.signout':         'Sign Out',
+    'step1.title':         'Look Up Order',
+    'tab.code':            'Enter Code',
+    'tab.scan':            'Scan QR',
+    'input.label':         'Receipt Code or Token',
+    'input.placeholder':   'AB3XYZ8F2K or paste full token…',
+    'input.hint':          'Enter the receipt code or scan the QR code.',
+    'btn.lookup':          'Look Up Order',
+    'btn.looking':         'Looking up…',
+    'btn.refresh':         'Refresh',
+    'btn.stopcam':         'Stop Camera',
+    'btn.cancel':          'Cancel',
+    'btn.confirm':         'CONFIRM HANDOVER',
+    'btn.processing':      'Processing…',
+    'btn.next':            'Next Customer',
+    'btn.back':            'Back',
+    'btn.tryagain':        'Try Again',
+    'btn.markpaid':        'Mark Paid',
+    'scan.hint':           'Point camera at QR code',
+    'cash.title':          'Cash Pending Orders',
+    'status.loading':      'Loading…',
+    'status.failed':       'Failed to load',
+    'status.nocash':       'No cash orders pending',
+    'idle.title':          'Ready to Verify',
+    'idle.sub':            'Enter a receipt code or scan a QR code.\nYou\'ll confirm before handing over food.',
+    'badge.valid':         'Valid & Ready',
+    'badge.valid.sub':     'Paid, not yet collected',
+    'badge.taken':         'Already Taken',
+    'badge.taken.sub':     'Order already picked up',
+    'badge.notready':      'Not Ready',
+    'badge.notready.sub':  'Payment pending / preparing',
+    'badge.invalid':       'Invalid Code',
+    'badge.invalid.sub':   'Code not found / tampered',
+    'confirm.found':       'ORDER FOUND',
+    'confirm.review':      'Review details then confirm handover',
+    'confirm.warning':     'This action is <strong>permanent</strong> — the receipt will be burned and cannot be reused.',
+    'success.title':       'ORDER HANDED OVER',
+    'already.title':       'ORDER ALREADY COLLECTED',
+    'already.sub':         'This receipt has already been used.',
+    'already.note':        'If this is an error, contact an admin to reset this order.',
+    'notready.title':      'NOT READY',
+    'invalid.title':       'INVALID RECEIPT',
+    'history.title':       'Recent Handovers',
+    'history.empty':       'None yet this session',
+    'lbl.order':           'Order',
+    'lbl.customer':        'Customer',
+    'lbl.total':           'Total',
+    'lbl.payment':         'Payment',
+    'lbl.handedby':        'Handed over by',
+    'lbl.pickedup.at':     'Picked up at',
+    'lbl.pickedup.by':     'Picked up by',
+    'lbl.currstatus':      'Current status',
+    'lbl.at':              'At ',
+    'alert.empty':         'Please enter a receipt code or token',
+    'alert.network':       'Network error — is the server running?',
+    'alert.camden':        'Camera access denied. Use manual code entry.',
+    // Change calculator
+    'calc.title':          'Change Calculator',
+    'calc.order_total':    'Order Total (ETB)',
+    'calc.customer_pays':  'Customer Pays (ETB)',
+    'calc.quick':          'Quick:',
+    'calc.change':         'Change to Return',
+    'calc.short':          'Short by',
+    // Promo code
+    'promo.title':         'Promo Code Validator',
+    'btn.check':           'Check',
+    // End-of-day
+    'eod.title':           'Session Summary',
+    'eod.handovers':       'Handovers',
+    'eod.total_etb':       'Total ETB',
+    'eod.rejected':        'Rejected',
+    'eod.note':            'Counts orders verified this session',
+  },
+  am: {
+    'nav.title':           'ደረሰኝ ማረጋገጫ',
+    'nav.admin':           'የአስተዳዳሪ ፓናል',
+    'nav.signout':         'ውጣ',
+    'step1.title':         'ትዕዛዝ ፈልግ',
+    'tab.code':            'ኮድ አስገባ',
+    'tab.scan':            'QR አንብብ',
+    'input.label':         'የደረሰኝ ኮድ ወይም ቶከን',
+    'input.placeholder':   'AB3XYZ8F2K ወይም ቶከን ለጥፍ…',
+    'input.hint':          'የደረሰኝ ኮድ አስገባ ወይም QR ኮድ ቃኝ።',
+    'btn.lookup':          'ትዕዛዝ ፈልግ',
+    'btn.looking':         'በፍለጋ ላይ…',
+    'btn.refresh':         'አድስ',
+    'btn.stopcam':         'ካሜራ አቁም',
+    'btn.cancel':          'ሰርዝ',
+    'btn.confirm':         'ማስረከቢያ አረጋግጥ',
+    'btn.processing':      'በሂደት ላይ…',
+    'btn.next':            'ቀጣይ ደንበኛ',
+    'btn.back':            'ተመለስ',
+    'btn.tryagain':        'እንደገና ሞክር',
+    'btn.markpaid':        'ተከፍሏል ምልክት አድርግ',
+    'scan.hint':           'ካሜራውን ወደ QR ኮዱ አዞር',
+    'cash.title':          'የጥሬ ገንዘብ ትዕዛዞች',
+    'status.loading':      'በመጫን ላይ…',
+    'status.failed':       'መጫን አልተሳካም',
+    'status.nocash':       'ጥሬ ገንዘብ የሚጠብቁ ትዕዛዞች የሉም',
+    'idle.title':          'ለማረጋገጥ ዝግጁ',
+    'idle.sub':            'የደረሰኝ ኮድ አስገባ ወይም QR ኮድ ቃኝ።\nምግብ ከማስረከብዎ በፊት ያረጋግጣሉ።',
+    'badge.valid':         'ሕጋዊ እና ዝግጁ',
+    'badge.valid.sub':     'ተከፍሏል፣ ገና አልተወሰደም',
+    'badge.taken':         'ቀድሞ ተወስዷል',
+    'badge.taken.sub':     'ትዕዛዙ ቀድሞ ተወስዷል',
+    'badge.notready':      'ዝግጁ አይደለም',
+    'badge.notready.sub':  'ክፍያ በመጠባበቅ / በዝግጅት ላይ',
+    'badge.invalid':       'ልክ ያልሆነ ኮድ',
+    'badge.invalid.sub':   'ኮድ አልተገኘም / ተጭበርብሯል',
+    'confirm.found':       'ትዕዛዝ ተገኝቷል',
+    'confirm.review':      'ዝርዝሮቹን ያረጋግጡ ከዚያ ማስረከቢያ ያረጋግጡ',
+    'confirm.warning':     'ይህ ድርጊት <strong>ቋሚ ነው</strong> — ደረሰኙ ይሰረዛል እናም እንደገና ጥቅም ላይ አይውልም።',
+    'success.title':       'ትዕዛዝ ተሰጥቷል',
+    'already.title':       'ትዕዛዝ ቀድሞ ተወስዷል',
+    'already.sub':         'ይህ ደረሰኝ ቀድሞ ጥቅም ላይ ውሏል።',
+    'already.note':        'ይህ ስህተት ከሆነ፣ ትዕዛዙን ዳግም ለማስጀመር አስተዳዳሪን ያነጋግሩ።',
+    'notready.title':      'ዝግጁ አይደለም',
+    'invalid.title':       'ልክ ያልሆነ ደረሰኝ',
+    'history.title':       'የቅርብ ጊዜ ርክክቦች',
+    'history.empty':       'በዚህ ክፍለ ጊዜ ምንም የለም',
+    'lbl.order':           'ትዕዛዝ',
+    'lbl.customer':        'ደንበኛ',
+    'lbl.total':           'ጠቅላላ',
+    'lbl.payment':         'ክፍያ',
+    'lbl.handedby':        'ያስረከበ',
+    'lbl.pickedup.at':     'የተወሰደ ሰዓት',
+    'lbl.pickedup.by':     'ያነሳ',
+    'lbl.currstatus':      'አሁናዊ ሁኔታ',
+    'lbl.at':              'በ ',
+    'alert.empty':         'እባክዎ የደረሰኝ ኮድ ወይም ቶከን አስገቡ',
+    'alert.network':       'የአውታረ መረብ ስህተት — አገልጋዩ እየሰራ ነው?',
+    'alert.camden':        'ካሜራ ፈቃድ ተከልክሏል። የእጅ ኮድ ማስገቢያ ይጠቀሙ።',
+    'calc.title':          'የልውጥ ካልኩሌተር',
+    'calc.order_total':    'የትዕዛዝ ጠቅላላ (ብር)',
+    'calc.customer_pays':  'ደንበኛ የሚከፍለው (ብር)',
+    'calc.quick':          'ፈጣን:',
+    'calc.change':         'የሚመለስ ሳንቲም',
+    'calc.short':          'ጉድለት',
+    'promo.title':         'ፕሮሞ ኮድ ፈተሽ',
+    'btn.check':           'ፈትሽ',
+    'eod.title':           'የዕለቱ ማጠቃለያ',
+    'eod.handovers':       'ርክክቦች',
+    'eod.total_etb':       'ጠቅላላ ብር',
+    'eod.rejected':        'የተቀበሉ',
+    'eod.note':            'በዚህ ክፍለ ጊዜ የተረጋገጡ ትዕዛዞች',
+  }
+};
+
+let currentLang = localStorage.getItem('lang') || 'en';
+
+function t(key) {
+  return (TRANSLATIONS[currentLang] && TRANSLATIONS[currentLang][key])
+       || (TRANSLATIONS['en'][key])
+       || key;
+}
+
+function applyTranslations() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    const val = t(key);
+    // Preserve innerHTML for keys with <strong> etc.
+    if (val.includes('<')) el.innerHTML = val;
+    else el.textContent = val;
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    el.placeholder = t(el.getAttribute('data-i18n-placeholder'));
+  });
+}
+
+function setLanguage(lang) {
+  currentLang = lang;
+  localStorage.setItem('lang', lang);
+  document.body.classList.toggle('lang-am', lang === 'am');
+  document.getElementById('langEn').classList.toggle('active', lang === 'en');
+  document.getElementById('langAm').classList.toggle('active', lang === 'am');
+  applyTranslations();
+  // Re-render dynamic sections
+  renderHistory();
+  loadCashPending();
+  // Update button texts that might be in idle state
+  if (!document.getElementById('lookupBtn').disabled) {
+    document.getElementById('lookupBtnText').textContent = t('btn.lookup');
+  }
+  if (!document.getElementById('confirmBtn').disabled) {
+    document.getElementById('confirmBtnText').textContent = t('btn.confirm');
+  }
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+const API    = window.location.origin;
+const TOKEN  = localStorage.getItem('token');
+const hdr    = { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
+
+let scanning     = false;
+let scanStream   = null;
+let sessionHistory = [];
+let pendingToken = null;
+let pendingIsFullToken = false;
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+function init() {
+  // Apply saved language
+  if (currentLang === 'am') {
+    document.body.classList.add('lang-am');
+    document.getElementById('langAm').classList.add('active');
+    document.getElementById('langEn').classList.remove('active');
+  }
+  applyTranslations();
+
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  document.getElementById('cashierUser').textContent = `${user.username || '?'} (${user.role || ''})`;
+  if (user.role === 'admin') document.getElementById('adminLink').classList.remove('hidden');
+  loadCashPending();
+}
+
+// ── Input mode ────────────────────────────────────────────────────────────────
+function setInputMode(mode) {
+  const isCode = mode === 'code';
+  document.getElementById('codeInputSection').classList.toggle('hidden', !isCode);
+  document.getElementById('scanSection').classList.toggle('hidden', isCode);
+  document.getElementById('modeCode').classList.toggle('active', isCode);
+  document.getElementById('modeScan').classList.toggle('active', !isCode);
+  if (!isCode) startScan(); else stopScan();
+}
+
+// ── QR Camera ─────────────────────────────────────────────────────────────────
+async function startScan() {
+  if (scanning) return;
+  try {
+    scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    const video = document.getElementById('qrVideo');
+    video.srcObject = scanStream; video.play();
+    scanning = true; requestAnimationFrame(scanFrame);
+  } catch(e) { alert(t('alert.camden')); setInputMode('code'); }
+}
+
+function stopScan() {
+  scanning = false;
+  if (scanStream) { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
+}
+
+function scanFrame() {
+  if (!scanning) return;
+  const video = document.getElementById('qrVideo');
+  const canvas = document.getElementById('qrCanvas');
+  if (video.readyState === video.HAVE_ENOUGH_DATA) {
+    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
+    if (code) {
+      stopScan(); setInputMode('code');
+      document.getElementById('receiptInput').value = code.data;
+      lookUpOrder();
+      return;
+    }
+  }
+  requestAnimationFrame(scanFrame);
+}
+
+// ── STEP 1: Look up ───────────────────────────────────────────────────────────
+async function lookUpOrder() {
+  const raw = document.getElementById('receiptInput').value.trim();
+  if (!raw) { alert(t('alert.empty')); return; }
+
+  setLookupLoading(true);
+  showPanel('idle');
+
+  const isFullToken = raw.includes('.');
+  const body = isFullToken
+    ? { token: raw }
+    : { receipt_code: raw.toUpperCase() };
+
+  try {
+    const res  = await fetch(`${API}/api/cashier/check`, { method:'POST', headers:hdr, body:JSON.stringify(body) });
+    if (res.status === 401) { logout(); return; }
+
+    if (res.ok) {
+      const order = await res.json();
+      pendingToken       = raw;
+      pendingIsFullToken = isFullToken;
+      showConfirmStep(order);
+    } else {
+      const data = await res.json();
+      const msg  = (typeof data.detail === 'object') ? data.detail.message : (data.detail || 'Not found');
+      document.getElementById('invalidMessage').textContent = msg;
+      showPanel('invalid');
+    }
+  } catch(e) {
+    document.getElementById('invalidMessage').textContent = t('alert.network');
+    showPanel('invalid');
+  } finally {
+    setLookupLoading(false);
+  }
+}
+
+// ── Show confirm step ─────────────────────────────────────────────────────────
+function showConfirmStep(order) {
+  const badge = document.getElementById('confirmStatusBadge');
+  const statusColors = {
+    'PAID':      { bg:'#dcfce7', color:'#16A34A' },
+    'PREPARING': { bg:'#dbeafe', color:'#2563EB' },
+    'READY':     { bg:'#f0fdf4', color:'#15803D' },
+  };
+  const sc = statusColors[order.status] || { bg:'#f1f5f9', color:'#64748b' };
+  badge.style.cssText = `background:${sc.bg}; color:${sc.color};`;
+  badge.textContent = order.status;
+
+  document.getElementById('confirmOrderDetails').innerHTML = buildOrderHtml(order, false);
+  showPanel('confirm');
+}
+
+// ── STEP 2: Confirm handover ──────────────────────────────────────────────────
+async function confirmHandover() {
+  if (!pendingToken) return;
+  setConfirmLoading(true);
+
+  const body = pendingIsFullToken
+    ? { token: pendingToken,        terminal_id: 'register-1' }
+    : { receipt_code: pendingToken, terminal_id: 'register-1' };
+
+  try {
+    const res  = await fetch(`${API}/api/cashier/redeem`, { method:'POST', headers:hdr, body:JSON.stringify(body) });
+    const data = await res.json();
+    if (res.status === 401) { logout(); return; }
+
+    if (res.ok && data.status === 'REDEEMED') {
+      document.getElementById('successMessage').textContent = data.message || `Order ${data.order_number} handed over successfully.`;
+      document.getElementById('successOrderDetails').innerHTML = buildRedeemHtml(data);
+      addToHistory(data, true);
+      showPanel('success');
+
+    } else if (res.status === 409) {
+      const det = data.detail || {};
+      document.getElementById('alreadyDetails').innerHTML = `
+        <div class="flex justify-between"><span class="text-slate-500">${t('lbl.order')}</span><span class="font-mono font-bold text-slate-900">${escHtml(det.order_number || '')}</span></div>
+        <div class="flex justify-between"><span class="text-slate-500">${t('lbl.pickedup.at')}</span><span class="font-semibold text-slate-700">${det.picked_up_at ? new Date(det.picked_up_at).toLocaleString() : '—'}</span></div>
+        <div class="flex justify-between"><span class="text-slate-500">${t('lbl.pickedup.by')}</span><span class="font-semibold text-slate-700">${escHtml(det.picked_up_by || '—')}</span></div>
+      `;
+      showPanel('already');
+
+    } else if (res.status === 400) {
+      const det = data.detail || {};
+      document.getElementById('notReadyMessage').textContent = det.message || 'Order is not ready for pickup.';
+      document.getElementById('notReadyDetails').innerHTML = `
+        <div class="flex justify-between"><span class="text-slate-500">${t('lbl.currstatus')}</span>
+          <span class="font-bold text-amber-700">${escHtml(det.current_status || '')}</span></div>
+      `;
+      showPanel('notready');
+
+    } else {
+      const det  = data.detail || {};
+      const msg  = (typeof det === 'object') ? (det.message || JSON.stringify(det)) : String(det);
+      document.getElementById('invalidMessage').textContent = msg;
+      showPanel('invalid');
+    }
+  } catch(e) {
+    document.getElementById('invalidMessage').textContent = t('alert.network');
+    showPanel('invalid');
+  } finally {
+    setConfirmLoading(false);
+    pendingToken = null;
+    pendingIsFullToken = false;
+  }
+}
+
+// ── Build HTML helpers ────────────────────────────────────────────────────────
+function buildOrderHtml(o, showPickup) {
+  return `
+    <div class="grid grid-cols-2 gap-2 mb-3">
+      <div><p class="text-xs text-slate-400 mb-0.5">${t('lbl.order')}</p><p class="font-mono font-bold text-slate-900">${escHtml(o.order_number)}</p></div>
+      <div><p class="text-xs text-slate-400 mb-0.5">${t('lbl.customer')}</p><p class="font-semibold text-slate-900">${escHtml(o.customer_name)}</p></div>
+      <div><p class="text-xs text-slate-400 mb-0.5">${t('lbl.total')}</p><p class="font-bold text-slate-900">ETB ${Number(o.total_amount).toFixed(2)}</p></div>
+      <div><p class="text-xs text-slate-400 mb-0.5">${t('lbl.payment')}</p><p class="font-semibold text-slate-700 capitalize">${escHtml(o.payment_method)}</p></div>
+    </div>
+    <div class="border-t border-slate-100 pt-2 space-y-1">
+      ${(o.items || []).map(i => `
+        <div class="flex justify-between text-xs text-slate-600">
+          <span>${escHtml(i.name)} ×${i.quantity}</span>
+          <span class="font-medium">ETB ${Number(i.subtotal).toFixed(2)}</span>
+        </div>
+      `).join('')}
+    </div>
+    ${o.notes ? `<p class="mt-2 text-xs text-amber-700 bg-amber-50 rounded-lg p-2 border border-amber-100">${escHtml(o.notes)}</p>` : ''}
+  `;
+}
+
+function buildRedeemHtml(d) {
+  return `
+    <div class="grid grid-cols-2 gap-2 mb-3">
+      <div><p class="text-xs text-slate-400 mb-0.5">${t('lbl.order')}</p><p class="font-mono font-bold text-slate-900">${escHtml(d.order_number)}</p></div>
+      <div><p class="text-xs text-slate-400 mb-0.5">${t('lbl.customer')}</p><p class="font-semibold text-slate-900">${escHtml(d.customer_name)}</p></div>
+      <div><p class="text-xs text-slate-400 mb-0.5">${t('lbl.total')}</p><p class="font-bold text-green-700">ETB ${Number(d.total_amount).toFixed(2)}</p></div>
+      <div><p class="text-xs text-slate-400 mb-0.5">${t('lbl.handedby')}</p><p class="font-semibold text-slate-700">${escHtml(d.picked_up_by || '—')}</p></div>
+    </div>
+    <div class="border-t border-slate-100 pt-2 space-y-1">
+      ${(d.items || []).map(i => `
+        <div class="flex justify-between text-xs text-slate-600">
+          <span>${escHtml(i.name)} ×${i.quantity}</span>
+          <span class="font-medium">ETB ${Number(i.subtotal).toFixed(2)}</span>
+        </div>
+      `).join('')}
+    </div>
+    <p class="mt-2 text-xs text-green-700 font-semibold">
+      ${d.picked_up_at ? t('lbl.at') + new Date(d.picked_up_at).toLocaleTimeString() : ''}
+    </p>
+  `;
+}
+
+// ── Panel management ──────────────────────────────────────────────────────────
+const ALL_PANELS = ['idle','confirm','success','already','notready','invalid'];
+
+function showPanel(which) {
+  const map = { idle:'resultIdle', confirm:'resultConfirm', success:'resultSuccess',
+                already:'resultAlready', notready:'resultNotReady', invalid:'resultInvalid' };
+  ALL_PANELS.forEach(p => {
+    const el = document.getElementById(map[p]);
+    if (el) el.classList.toggle('hidden', p !== which);
+  });
+}
+
+// ── Loading states ────────────────────────────────────────────────────────────
+function setLookupLoading(v) {
+  document.getElementById('lookupBtn').disabled = v;
+  document.getElementById('lookupSpinner').classList.toggle('hidden', !v);
+  document.getElementById('lookupBtnText').textContent = v ? t('btn.looking') : t('btn.lookup');
+}
+
+function setConfirmLoading(v) {
+  document.getElementById('confirmBtn').disabled = v;
+  document.getElementById('confirmSpinner').classList.toggle('hidden', !v);
+  document.getElementById('confirmBtnText').textContent = v ? t('btn.processing') : t('btn.confirm');
+  if (v) document.getElementById('confirmBtn').classList.remove('confirm-btn-pulse');
+  else   document.getElementById('confirmBtn').classList.add('confirm-btn-pulse');
+}
+
+function resetVerifier() {
+  document.getElementById('receiptInput').value = '';
+  pendingToken = null;
+  pendingIsFullToken = false;
+  showPanel('idle');
+  document.getElementById('receiptInput').focus();
+}
+
+// ── Session history ────────────────────────────────────────────────────────────
+function addToHistory(data, success) {
+  sessionHistory.unshift({ data, success, time: new Date() });
+  sessionHistory = sessionHistory.slice(0, 10);
+  renderHistory();
+}
+
+function renderHistory() {
+  const el = document.getElementById('recentList');
+  if (!sessionHistory.length) {
+    el.innerHTML = `<p class="text-sm text-slate-400 text-center py-2">${t('history.empty')}</p>`;
+    return;
+  }
+  el.innerHTML = sessionHistory.map(h => `
+    <div class="flex items-center justify-between p-2.5 rounded-xl" style="background:${h.success ? '#f0fdf4' : '#fef2f2'};">
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0" style="background:${h.success ? '#16A34A' : '#ef4444'};">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+            ${h.success
+              ? '<path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>'
+              : '<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>'}
+          </svg>
+        </div>
+        <div>
+          <p class="text-xs font-mono font-bold ${h.success ? 'text-green-700' : 'text-red-600'}">${escHtml(h.data.order_number || '—')}</p>
+          <p class="text-xs text-slate-500">${escHtml(h.data.customer_name || '—')}</p>
+        </div>
+      </div>
+      <div class="text-right">
+        <p class="text-xs font-bold text-slate-700">ETB ${Number(h.data.total_amount || 0).toFixed(2)}</p>
+        <p class="text-xs text-slate-400">${h.time.toLocaleTimeString()}</p>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── Cash pending ──────────────────────────────────────────────────────────────
+async function loadCashPending() {
+  const el = document.getElementById('cashPendingList');
+  el.innerHTML = `<p class="text-sm text-slate-400 text-center py-3">${t('status.loading')}</p>`;
+  try {
+    const res = await fetch(`${API}/api/cashier/orders/cash-pending`, { headers: hdr });
+    if (!res.ok) { el.innerHTML = `<p class="text-xs text-red-400 text-center py-2">${t('status.failed')}</p>`; return; }
+    const orders = await res.json();
+    if (!orders.length) { el.innerHTML = `<p class="text-sm text-slate-400 text-center py-3">${t('status.nocash')}</p>`; return; }
+    el.innerHTML = orders.map(o => `
+      <div class="flex items-center justify-between p-3 rounded-xl" style="background:#fffbeb; border:1px solid #fde68a;">
+        <div>
+          <p class="text-xs font-mono font-bold text-slate-800">${escHtml(o.order_number)}</p>
+          <p class="text-xs text-slate-500 mt-0.5">${escHtml(o.customer_name)} · ETB ${Number(o.total_amount).toFixed(2)}</p>
+        </div>
+        <button onclick="markCashPaid(${o.id}, this)"
+          class="btn text-xs px-3 py-1.5 rounded-lg text-white font-semibold flex items-center gap-1" style="background:#16A34A;">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+          ${t('btn.markpaid')}
+        </button>
+      </div>
+    `).join('');
+  } catch(e) {
+    el.innerHTML = `<p class="text-xs text-red-400 text-center py-2">${t('status.failed')}</p>`;
+  }
+}
+
+async function markCashPaid(orderId, btn) {
+  btn.disabled = true; btn.textContent = '…';
+  const res = await fetch(`${API}/api/admin/orders/${orderId}/mark-cash-paid`, { method:'POST', headers:hdr });
+  if (res.ok) {
+    loadCashPending(); showToast('Cash order marked as paid!');
+  } else {
+    btn.disabled = false;
+    btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg> ${t('btn.markpaid')}`;
+    const d = await res.json().catch(() => ({}));
+    alert(d.detail || 'Failed to mark as paid');
+  }
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+function showToast(msg, color) {
+  const toast = document.createElement('div');
+  toast.className = 'fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl shadow-lg text-white text-sm font-semibold';
+  toast.style.cssText = `background:${color || '#0f172a'}; animation:slideUp .3s ease both;`;
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
+
+function escHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function logout() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  window.location.href = '/frontend/login.html';
+}
+
+// ── Change own password modal (cashier) ───────────────────────────────────────
+function openChangePwModal() {
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  document.getElementById('changePwUser').textContent = user.username ? `Logged in as: ${user.username}` : '';
+  ['cpCurrent','cpNew','cpConfirm'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('cpError').classList.add('hidden');
+  document.getElementById('changePwModal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('cpCurrent').focus(), 100);
+}
+function closeChangePwModal() { document.getElementById('changePwModal').classList.add('hidden'); }
+
+async function submitChangePw() {
+  const current = document.getElementById('cpCurrent').value;
+  const newPw   = document.getElementById('cpNew').value;
+  const confirm = document.getElementById('cpConfirm').value;
+  const errEl   = document.getElementById('cpError');
+  const btn     = document.getElementById('cpSaveBtn');
+  errEl.classList.add('hidden');
+
+  if (!current || !newPw || !confirm) { errEl.textContent = 'All fields are required.'; errEl.classList.remove('hidden'); return; }
+  if (newPw.length < 8)  { errEl.textContent = 'New password must be at least 8 characters.'; errEl.classList.remove('hidden'); return; }
+  if (newPw !== confirm) { errEl.textContent = 'Passwords do not match.'; errEl.classList.remove('hidden'); return; }
+
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const res  = await fetch(`${API}/api/auth/change-password`, {
+      method: 'PATCH', headers: hdr,
+      body: JSON.stringify({ current_password: current, new_password: newPw }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      closeChangePwModal();
+      showToast('Password updated successfully!', '#16a34a');
+    } else {
+      errEl.textContent = data.detail || 'Failed to update password.';
+      errEl.classList.remove('hidden');
+    }
+  } catch (e) {
+    errEl.textContent = 'Network error. Try again.';
+    errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Update Password';
+  }
+}
+
+// ── Change Calculator ─────────────────────────────────────────────────────────
+function calcChange() {
+  const total = parseFloat(document.getElementById('calcOrderTotal').value) || 0;
+  const pays  = parseFloat(document.getElementById('calcCustomerPays').value) || 0;
+  const resultEl  = document.getElementById('changeResult');
+  const amountEl  = document.getElementById('changeAmount');
+  const labelEl   = document.getElementById('changeLabel');
+
+  if (total <= 0 || pays <= 0) { resultEl.classList.add('hidden'); return; }
+
+  const change = pays - total;
+  resultEl.classList.remove('hidden');
+
+  if (change >= 0) {
+    resultEl.style.cssText   = 'background:#f0fdf4; border:1px solid #86efac;';
+    labelEl.className        = 'text-xs font-semibold uppercase tracking-wide mb-1 text-green-600';
+    labelEl.textContent      = t('calc.change');
+    amountEl.className       = 'text-3xl font-extrabold text-green-700';
+    amountEl.textContent     = `ETB ${change.toFixed(2)}`;
+  } else {
+    resultEl.style.cssText   = 'background:#fef2f2; border:1px solid #fca5a5;';
+    labelEl.className        = 'text-xs font-semibold uppercase tracking-wide mb-1 text-red-500';
+    labelEl.textContent      = t('calc.short');
+    amountEl.className       = 'text-3xl font-extrabold text-red-600';
+    amountEl.textContent     = `ETB ${Math.abs(change).toFixed(2)}`;
+  }
+}
+
+function setQuickAmount(amount) {
+  document.getElementById('calcCustomerPays').value = amount;
+  calcChange();
+}
+
+// ── Promo Code Validator ──────────────────────────────────────────────────────
+async function checkPromoCode() {
+  const code = document.getElementById('promoCodeInput').value.trim().toUpperCase();
+  const resultEl = document.getElementById('promoResult');
+  if (!code) return;
+
+  document.getElementById('promoCheckBtn').disabled = true;
+  document.getElementById('promoCheckBtn').textContent = '…';
+  resultEl.classList.add('hidden');
+
+  try {
+    const total = parseFloat(document.getElementById('calcOrderTotal').value) || 0;
+    const res = await fetch(`${API}/api/promos/${encodeURIComponent(code)}?order_total=${total}`, { headers: hdr });
+    const data = await res.json();
+
+    if (res.ok) {
+      resultEl.style.cssText  = 'background:#f5f3ff; border:1px solid #c4b5fd;';
+      resultEl.className      = 'rounded-xl p-3 text-sm text-purple-800 font-medium';
+      resultEl.innerHTML = `
+        <div class="flex items-center gap-2 mb-1">
+          <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <strong>${escHtml(code)}</strong> — ${escHtml(data.description)}
+        </div>
+        ${total > 0 ? `<p class="text-xs text-purple-600">Discount: <strong>ETB ${data.discount_etb.toFixed(2)}</strong> → New total: <strong>ETB ${data.new_total.toFixed(2)}</strong></p>` : ''}
+      `;
+    } else {
+      resultEl.style.cssText  = 'background:#fef2f2; border:1px solid #fca5a5;';
+      resultEl.className      = 'rounded-xl p-3 text-sm text-red-600 font-medium';
+      resultEl.textContent    = data.detail || 'Invalid promo code';
+    }
+  } catch (e) {
+    resultEl.style.cssText = 'background:#fef2f2; border:1px solid #fca5a5;';
+    resultEl.className     = 'rounded-xl p-3 text-sm text-red-600 font-medium';
+    resultEl.textContent   = t('alert.network');
+  } finally {
+    resultEl.classList.remove('hidden');
+    document.getElementById('promoCheckBtn').disabled = false;
+    document.getElementById('promoCheckBtn').textContent = t('btn.check');
+  }
+}
+
+// ── End-of-Day (Session) Summary ──────────────────────────────────────────────
+let eodHandovers = 0;
+let eodTotal     = 0;
+let eodRejected  = 0;
+
+function updateEodSummary() {
+  // Count from session history
+  let handovers = 0, total = 0, rejected = 0;
+  sessionHistory.forEach(h => {
+    if (h.success) {
+      handovers++;
+      total += Number(h.data.total_amount || 0);
+    } else {
+      rejected++;
+    }
+  });
+  document.getElementById('eodCount').textContent    = handovers;
+  document.getElementById('eodTotal').textContent    = total.toFixed(0);
+  document.getElementById('eodRejected').textContent = rejected;
+}
+
+// Hook into existing addToHistory to keep EOD in sync
+const _origAddToHistory = addToHistory;
+addToHistory = function(data, success) {
+  _origAddToHistory(data, success);
+  updateEodSummary();
+};
+
+// ── WebSocket real-time (cashier) ─────────────────────────────────────────────
+let cashierWs = null;
+
+function connectCashierWS() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  cashierWs = new WebSocket(`${proto}://${location.host}/ws/cashier`);
+
+  cashierWs.onmessage = (evt) => {
+    try {
+      const data = JSON.parse(evt.data);
+      if (['new_cash_order', 'payment_confirmed', 'bank_transfer_claim'].includes(data.event)) {
+        loadCashPending();
+        showToast(
+          data.event === 'new_cash_order'
+            ? `New cash order: ${data.order_number}`
+            : data.event === 'bank_transfer_claim'
+              ? `Bank transfer claimed: ${data.order_number}`
+              : `Payment confirmed: ${data.order_number}`,
+          data.event === 'new_cash_order' ? '#0f172a' : '#16A34A'
+        );
+      }
+    } catch (_) {}
+  };
+
+  cashierWs.onclose = () => {
+    setTimeout(connectCashierWS, 5000);
+  };
+
+  cashierWs.onerror = () => { cashierWs.close(); };
+
+  setInterval(() => {
+    if (cashierWs && cashierWs.readyState === WebSocket.OPEN) cashierWs.send('ping');
+  }, 25000);
+}
+
+init();
+connectCashierWS();
+</script>
+</body>
+</html>

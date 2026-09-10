@@ -1,0 +1,2622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Panel — Taste of Ethiopia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=DM+Sans:wght@300;400;500;600;700&family=Noto+Sans+Ethiopic:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: {
+        fontFamily: {
+          sans:    ['"DM Sans"', 'sans-serif'],
+          display: ['"Playfair Display"', 'serif'],
+        },
+        colors: {
+          brand: { DEFAULT: '#C8102E', dark: '#a80d26' },
+          gold:  { DEFAULT: '#D4A017' },
+        }
+      }}
+    }
+  </script>
+  <style>
+    * { font-family: 'DM Sans', sans-serif; }
+    .font-display { font-family: 'Playfair Display', serif; }
+
+    body.lang-am, body.lang-am * {
+      font-family: 'Noto Sans Ethiopic', 'DM Sans', sans-serif !important;
+    }
+    body.lang-am .font-display {
+      font-family: 'Noto Sans Ethiopic', sans-serif !important;
+    }
+
+    /* Language toggle */
+    .lang-toggle {
+      display: flex; align-items: center; gap: 4px;
+      background: #f1f5f9; border: 1px solid #e2e8f0;
+      border-radius: 999px; padding: 3px 4px;
+    }
+    .lang-toggle button {
+      padding: 3px 10px; border-radius: 999px;
+      font-size: 11px; font-weight: 700; letter-spacing: .03em;
+      cursor: pointer; transition: all .15s ease; border: none;
+      color: #94a3b8; background: transparent;
+    }
+    .lang-toggle button.active {
+      background: white; color: #0f172a;
+      box-shadow: 0 1px 4px rgba(0,0,0,.1);
+    }
+    .lang-toggle button:not(.active):hover { color: #475569; }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    @keyframes scaleIn {
+      from { opacity: 0; transform: scale(0.96); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+    @keyframes slideInRight {
+      from { opacity: 0; transform: translateX(20px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(8px) scale(0.96); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .anim-up { animation: slideUp 0.5s cubic-bezier(0.16,1,0.3,1) both; }
+    .anim-fade { animation: fadeIn 0.35s ease both; }
+    .anim-scale { animation: scaleIn 0.4s cubic-bezier(0.16,1,0.3,1) both; }
+
+    .stat-card {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 20px;
+      transition: box-shadow 0.2s ease, transform 0.2s ease;
+    }
+    .stat-card:hover {
+      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+      transform: translateY(-2px);
+    }
+
+    .tab-btn {
+      position: relative;
+      padding: 12px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+      color: #64748b;
+      border-bottom: 2px solid transparent;
+      transition: color 0.2s ease, border-color 0.2s ease;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .tab-btn:hover { color: #0f172a; }
+    .tab-btn.active {
+      color: #C8102E;
+      border-bottom-color: #C8102E;
+      font-weight: 600;
+    }
+
+    .btn-primary {
+      background: #C8102E;
+      color: white;
+      font-weight: 600;
+      border-radius: 10px;
+      padding: 10px 18px;
+      font-size: 13px;
+      transition: all 0.15s ease;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-primary:hover { background: #a80d26; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(200,16,46,0.25); }
+    .btn-primary:active { transform: scale(0.97); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    .modal-overlay {
+      background: rgba(15, 23, 42, 0.5);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+    }
+    .modal-card {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.2);
+    }
+
+    .table-row {
+      transition: background 0.15s ease;
+    }
+    .table-row:hover { background: #f8fafc; }
+
+    input, select, textarea {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    .form-input {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 10px;
+      font-size: 14px;
+      color: #0f172a;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      background: white;
+    }
+    .form-input:focus {
+      border-color: #94a3b8;
+      box-shadow: 0 0 0 3px rgba(148,163,184,0.15);
+    }
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: #475569;
+      margin-bottom: 6px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 9px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .quick-action-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px;
+      border-radius: 12px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .quick-action-card:hover {
+      background: white;
+      border-color: #cbd5e1;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+      transform: translateY(-1px);
+    }
+
+    .progress-bar {
+      height: 6px;
+      background: #f1f5f9;
+      border-radius: 20px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      border-radius: 20px;
+      transition: width 0.8s cubic-bezier(0.16,1,0.3,1);
+    }
+
+    .staff-card {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 16px;
+      transition: box-shadow 0.2s ease, transform 0.2s ease;
+    }
+    .staff-card:hover {
+      box-shadow: 0 6px 20px rgba(0,0,0,0.07);
+      transform: translateY(-2px);
+    }
+
+    #toast { animation: toastIn 0.3s cubic-bezier(0.16,1,0.3,1) both; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, ::before, ::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+
+    /* ── POS Config Card ── */
+    .pos-config-card {
+      background: #fff;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 14px;
+      transition: border-color .15s, box-shadow .15s;
+      position: relative;
+    }
+    .pos-config-card.visible  { border-left: 4px solid #22c55e; }
+    .pos-config-card.hidden-pos { border-left: 4px solid #f87171; opacity: .75; }
+    .pos-config-card.oos      { border-left: 4px solid #fbbf24; }
+    .pos-config-card:hover    { box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+
+    .pos-toggle { width:38px; height:22px; border-radius:11px; cursor:pointer; transition:background .2s; border:none; outline:none; flex-shrink:0; position:relative; }
+    .pos-toggle::after { content:''; position:absolute; top:3px; width:16px; height:16px; border-radius:50%; background:#fff; transition:left .2s; box-shadow:0 1px 3px rgba(0,0,0,.2); }
+    .pos-toggle.on  { background:#22c55e; }
+    .pos-toggle.on::after  { left:19px; }
+    .pos-toggle.off { background:#cbd5e1; }
+    .pos-toggle.off::after { left:3px; }
+
+    .pos-cat-filter-btn { cursor:pointer; transition:all .15s; }
+  </style>
+</head>
+<body class="min-h-screen" style="background:#f8fafc;">
+
+<script>
+  (function(){
+    const token = localStorage.getItem('token');
+    const user  = JSON.parse(localStorage.getItem('user') || 'null');
+    if (!token || !user || user.role !== 'admin') {
+      window.location.href = '/frontend/login.html';
+    }
+  })();
+</script>
+
+<!-- ── NAVBAR ──────────────────────────────────────────────────────────────── -->
+<nav class="bg-white border-b border-slate-200 sticky top-0 z-30">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:#C8102E; box-shadow:0 4px 12px rgba(200,16,46,0.3);">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5 text-white" style="width:18px;height:18px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+      </div>
+      <div>
+        <h1 class="font-display font-bold text-slate-900 text-base leading-tight" data-i18n="nav.title">Admin Panel</h1>
+        <p class="text-xs text-slate-400 font-medium" id="adminUser">Loading…</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <!-- Language Toggle -->
+      <div class="lang-toggle">
+        <button id="langEn" class="active" onclick="setLanguage('en')">EN</button>
+        <button id="langAm" onclick="setLanguage('am')">አማ</button>
+      </div>
+      <a href="/frontend/customer.html"
+        class="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 hover:border-slate-300 transition cursor-pointer" data-i18n="nav.customer">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+        Customer View
+      </a>
+      <button onclick="logout()"
+        class="text-xs font-medium text-slate-500 hover:text-red-600 px-3 py-1.5 rounded-lg border border-slate-200 hover:border-red-200 transition cursor-pointer" data-i18n="nav.signout">
+        Sign Out
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- ── TABS ────────────────────────────────────────────────────────────────── -->
+<div class="bg-white border-b border-slate-200 sticky top-[57px] z-20">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 flex gap-0 overflow-x-auto">
+    <button onclick="switchTab('analytics')" data-tab="analytics" class="tab-btn active">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+      <span data-i18n="tab.analytics">Analytics</span>
+    </button>
+    <button onclick="switchTab('menu')" data-tab="menu" class="tab-btn">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/></svg>
+      <span data-i18n="tab.menu">Menu</span>
+    </button>
+    <button onclick="switchTab('orders')" data-tab="orders" class="tab-btn">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+      <span data-i18n="tab.orders">Orders</span>
+    </button>
+    <button onclick="switchTab('staff')" data-tab="staff" class="tab-btn">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      <span data-i18n="tab.staff">Staff</span>
+    </button>
+    <button onclick="switchTab('security')" data-tab="security" class="tab-btn">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+      <span data-i18n="tab.security">Security</span>
+    </button>
+    <button onclick="switchTab('reviews')" data-tab="reviews" class="tab-btn">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+      <span data-i18n="tab.reviews">Reviews</span>
+    </button>
+    <button onclick="switchTab('loyalty')" data-tab="loyalty" class="tab-btn">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <span data-i18n="tab.loyalty">Loyalty</span>
+    </button>
+    <button onclick="switchTab('posconfig')" data-tab="posconfig" class="tab-btn">
+      <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01M4 19h16a2 2 0 002-2V7a2 2 0 00-2-2H4a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+      <span data-i18n="tab.posconfig">POS Config</span>
+    </button>
+  </div>
+</div>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+
+  <!-- ── ANALYTICS TAB ──────────────────────────────────────────────────────── -->
+  <div id="tab-analytics">
+    <div id="analyticsGrid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+      <!-- stat cards populated by JS -->
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <!-- Orders by Status -->
+      <div class="bg-white rounded-2xl p-5 border border-slate-200">
+        <h3 class="font-semibold text-slate-900 mb-4 text-sm" data-i18n="analytics.orders_by_status">Orders by Status</h3>
+        <div id="statusBreakdown" class="space-y-3"></div>
+      </div>
+      <!-- Quick Actions -->
+      <div class="bg-white rounded-2xl p-5 border border-slate-200">
+        <h3 class="font-semibold text-slate-900 mb-4 text-sm" data-i18n="analytics.quick_actions">Quick Actions</h3>
+        <div class="space-y-2.5">
+          <a href="/frontend/kitchen.html" class="quick-action-card">
+            <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style="background:#0f172a;">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5 text-white" style="width:18px;height:18px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/></svg>
+            </div>
+            <div>
+              <p class="font-semibold text-sm text-slate-900">Kitchen Dashboard</p>
+              <p class="text-xs text-slate-400 mt-0.5">View live kitchen orders</p>
+            </div>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-300 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+          </a>
+          <a href="/frontend/verify.html" class="quick-action-card">
+            <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style="background:#16A34A;">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5 text-white" style="width:18px;height:18px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            </div>
+            <div>
+              <p class="font-semibold text-sm text-slate-900">Receipt Verification</p>
+              <p class="text-xs text-slate-400 mt-0.5">Verify and redeem receipts</p>
+            </div>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-300 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+          </a>
+          <button onclick="switchTab('orders');filterOrdersByStatus('CASH_PENDING')" class="quick-action-card w-full text-left">
+            <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style="background:#CA8A04;">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5 text-white" style="width:18px;height:18px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <div>
+              <p class="font-semibold text-sm text-slate-900">Cash Pending Orders</p>
+              <p class="text-xs text-slate-400 mt-0.5">Mark cash payments as received</p>
+            </div>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-300 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MENU TAB ───────────────────────────────────────────────────────────── -->
+  <div id="tab-menu" class="hidden">
+    <div class="flex items-center justify-between mb-5">
+      <div>
+        <h2 class="font-bold text-slate-900 text-lg" data-i18n="menu.title">Menu Items</h2>
+        <p class="text-xs text-slate-400 mt-0.5" data-i18n="menu.sub">Manage your restaurant menu</p>
+      </div>
+      <button onclick="openMenuModal()" class="btn-primary">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+        <span data-i18n="btn.add_item">Add Item</span>
+      </button>
+    </div>
+
+    <div id="menuCatFilter" class="flex gap-2 mb-4 overflow-x-auto pb-1"></div>
+
+    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead style="background:#f8fafc; border-bottom:1px solid #e2e8f0;">
+          <tr>
+            <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Name</th>
+            <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider hidden sm:table-cell">Category</th>
+            <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Price</th>
+            <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider hidden md:table-cell">Status</th>
+            <th class="text-right px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="menuTable" class="divide-y divide-slate-100"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── ORDERS TAB ─────────────────────────────────────────────────────────── -->
+  <div id="tab-orders" class="hidden">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+      <div>
+        <h2 class="font-bold text-slate-900 text-lg" data-i18n="orders.title">All Orders</h2>
+        <p class="text-xs text-slate-400 mt-0.5" data-i18n="orders.sub">Full order history and management</p>
+      </div>
+      <div class="flex gap-2 flex-wrap">
+        <select id="orderStatusFilter" onchange="loadOrders()"
+          class="form-input text-sm py-2 px-3 w-auto cursor-pointer" style="width:auto;">
+          <option value="">All Statuses</option>
+          <option value="PENDING">Pending (Online)</option>
+          <option value="CASH_PENDING">Cash Pending</option>
+          <option value="PAID">Paid</option>
+          <option value="PREPARING">Preparing</option>
+          <option value="READY">Ready</option>
+          <option value="PICKED_UP">Picked Up</option>
+          <option value="COMPLETED">Completed</option>
+          <option value="CANCELLED">Cancelled</option>
+          <option value="FAILED">Failed</option>
+        </select>
+        <select id="orderPayFilter" onchange="loadOrders()"
+          class="form-input text-sm py-2 px-3 w-auto cursor-pointer" style="width:auto;">
+          <option value="">All Methods</option>
+          <option value="online">Online</option>
+          <option value="cash">Cash</option>
+        </select>
+      </div>
+    </div>
+    <div class="bg-white rounded-2xl border border-slate-200 overflow-x-auto">
+      <table class="w-full text-sm min-w-[700px]">
+        <thead style="background:#f8fafc; border-bottom:1px solid #e2e8f0;">
+          <tr>
+            <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Order #</th>
+            <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Customer</th>
+            <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Total</th>
+            <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Status</th>
+            <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Payment</th>
+            <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Date</th>
+            <th class="text-right px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="ordersTable" class="divide-y divide-slate-100"></tbody>
+      </table>
+      <div id="ordersEmpty" class="hidden text-center py-12 text-slate-400 text-sm">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mx-auto mb-3 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+        No orders found.
+      </div>
+    </div>
+  </div>
+
+  <!-- ── STAFF TAB ──────────────────────────────────────────────────────────── -->
+  <div id="tab-staff" class="hidden">
+    <div class="flex items-center justify-between mb-5">
+      <div>
+        <h2 class="font-bold text-slate-900 text-lg" data-i18n="staff.title">Staff Accounts</h2>
+        <p class="text-xs text-slate-400 mt-0.5" data-i18n="staff.sub">Manage team members and roles</p>
+      </div>
+      <button onclick="openStaffModal()" class="btn-primary">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+        <span data-i18n="btn.add_staff">Add Staff</span>
+      </button>
+    </div>
+    <div id="staffList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+  </div>
+
+  <!-- ── SECURITY TAB ─────────────────────────────────────────────────────── -->
+  <div id="tab-security" class="hidden">
+    <div class="flex items-center justify-between mb-5">
+      <div>
+        <h2 class="font-bold text-slate-900 text-lg" data-i18n="security.title">Security &amp; Audit</h2>
+        <p class="text-xs text-slate-400 mt-0.5" data-i18n="security.sub">Redemption audit trail and suspicious activity flags</p>
+      </div>
+      <button onclick="loadSecurity()" class="btn-primary">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        Refresh
+      </button>
+    </div>
+
+    <!-- Suspicious Activity -->
+    <div class="bg-white rounded-2xl border border-slate-200 mb-5">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+        <h3 class="font-semibold text-slate-900 text-sm flex items-center gap-2">
+          <span class="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01"/></svg>
+          </span>
+          Suspicious Activity Flags
+        </h3>
+        <div class="flex gap-2">
+          <button onclick="loadSuspicious(false)" id="suspUnresolvedBtn"
+            class="text-xs px-3 py-1 rounded-full font-semibold" style="background:#fee2e2;color:#991b1b;">
+            Unresolved
+          </button>
+          <button onclick="loadSuspicious(true)" id="suspResolvedBtn"
+            class="text-xs px-3 py-1 rounded-full font-medium text-slate-500 bg-slate-100">
+            Resolved
+          </button>
+        </div>
+      </div>
+      <div id="suspiciousList" class="divide-y divide-slate-100 min-h-[60px]">
+        <p class="text-sm text-slate-400 text-center py-8">Loading…</p>
+      </div>
+    </div>
+
+    <!-- Audit Log -->
+    <div class="bg-white rounded-2xl border border-slate-200">
+      <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-slate-100">
+        <h3 class="font-semibold text-slate-900 text-sm flex items-center gap-2">
+          <span class="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          </span>
+          Recent Audit Log
+        </h3>
+        <div class="flex gap-2 items-center">
+          <input id="auditOrderFilter" type="number" placeholder="Filter by Order ID…"
+            class="form-input text-xs py-1.5 px-2.5" style="height:auto;width:160px;"
+            onkeydown="if(event.key==='Enter') loadAuditLogs()"/>
+          <button onclick="loadAuditLogs()" class="text-xs px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium transition cursor-pointer">Search</button>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[640px]">
+          <thead style="background:#f8fafc; border-bottom:1px solid #e2e8f0;">
+            <tr>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Event</th>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Order</th>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Actor</th>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">IP / Terminal</th>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Note</th>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Time</th>
+            </tr>
+          </thead>
+          <tbody id="auditTable" class="divide-y divide-slate-100">
+            <tr><td colspan="6" class="text-center py-8 text-slate-400 text-sm">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── REVIEWS TAB ──────────────────────────────────────────────────────── -->
+  <div id="tab-reviews" class="hidden">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+      <div>
+        <h2 class="font-bold text-slate-900 text-lg" data-i18n="reviews.title">Customer Reviews</h2>
+        <p class="text-xs text-slate-400 mt-0.5" data-i18n="reviews.sub">Manage and moderate customer feedback</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <div id="reviewSummaryBadge" class="hidden items-center gap-2 px-4 py-2 rounded-xl border border-amber-200 text-sm font-semibold" style="background:#fefce8;color:#92400e;"></div>
+        <button onclick="loadAdminReviews()" class="btn-primary">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          Refresh
+        </button>
+      </div>
+    </div>
+
+    <!-- Filter tabs -->
+    <div class="flex gap-2 mb-4">
+      <button onclick="filterAdminReviews('all')" id="rFilterAll"
+        class="px-3.5 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer" style="background:#0f172a;color:white;">
+        All
+      </button>
+      <button onclick="filterAdminReviews('approved')" id="rFilterApproved"
+        class="px-3.5 py-1.5 rounded-full text-xs font-medium transition cursor-pointer" style="background:#f1f5f9;color:#475569;">
+        Approved
+      </button>
+      <button onclick="filterAdminReviews('hidden')" id="rFilterHidden"
+        class="px-3.5 py-1.5 rounded-full text-xs font-medium transition cursor-pointer" style="background:#f1f5f9;color:#475569;">
+        Hidden
+      </button>
+    </div>
+
+    <!-- Reviews table -->
+    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[700px]">
+          <thead style="background:#f8fafc; border-bottom:1px solid #e2e8f0;">
+            <tr>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Reviewer</th>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Rating</th>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Comment</th>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider hidden lg:table-cell">Reply</th>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider hidden md:table-cell">Order #</th>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Status</th>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider hidden sm:table-cell">Date</th>
+              <th class="text-right px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="reviewsTable" class="divide-y divide-slate-100">
+            <tr><td colspan="8" class="text-center py-8 text-slate-400 text-sm">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── LOYALTY TAB ────────────────────────────────────────────────────────── -->
+  <div id="tab-loyalty" class="hidden space-y-6">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h2 class="font-bold text-slate-900 text-lg" data-i18n="loyalty.title">Loyalty Programme</h2>
+        <p class="text-xs text-slate-400 mt-0.5" data-i18n="loyalty.sub">10 ETB = 1 point · Manage members, rewards catalog &amp; claims</p>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="openRewardModal(null)" class="btn-primary">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+          <span data-i18n="btn.add_reward">Add Reward</span>
+        </button>
+        <button onclick="loadAdminLoyalty()" class="btn-primary" style="background:#475569;">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          Refresh
+        </button>
+      </div>
+    </div>
+
+    <!-- Summary stats -->
+    <div id="loyaltySummaryCards" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
+
+    <!-- ── Reward Catalog ──────────────────────────────────────────────────── -->
+    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+        <div>
+          <h3 class="font-semibold text-slate-900 text-sm">Reward Catalog</h3>
+          <p class="text-xs text-slate-400 mt-0.5">Items customers can claim with points — refresh monthly</p>
+        </div>
+        <button onclick="openRewardModal(null)" class="text-xs font-semibold px-3 py-1.5 rounded-lg transition cursor-pointer" style="background:#fef3c7; color:#92400e;" onmouseover="this.style.background='#fde68a'" onmouseout="this.style.background='#fef3c7'">+ Add Item</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead style="background:#f8fafc; border-bottom:1px solid #e2e8f0;">
+            <tr>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Name</th>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Points</th>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider hidden sm:table-cell">Status</th>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider hidden md:table-cell">Qty Limit</th>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider hidden md:table-cell">Claimed</th>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider hidden lg:table-cell">Valid Until</th>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="rewardCatalogTable" class="divide-y divide-slate-100">
+            <tr><td colspan="7" class="text-center py-8 text-slate-400 text-sm">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Recent Claims ───────────────────────────────────────────────────── -->
+    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+        <h3 class="font-semibold text-slate-900 text-sm">Recent Claims</h3>
+        <span class="text-xs text-slate-400">Last 50 reward claims</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead style="background:#f8fafc; border-bottom:1px solid #e2e8f0;">
+            <tr>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Code</th>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Reward</th>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider hidden sm:table-cell">Customer</th>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider hidden md:table-cell">Points</th>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider hidden md:table-cell">Date</th>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Status</th>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Action</th>
+            </tr>
+          </thead>
+          <tbody id="rewardClaimsTable" class="divide-y divide-slate-100">
+            <tr><td colspan="7" class="text-center py-8 text-slate-400 text-sm">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Top Loyalty Members ─────────────────────────────────────────────── -->
+    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+        <h3 class="font-semibold text-slate-900 text-sm">Top Loyalty Members</h3>
+        <span class="text-xs text-slate-400">By points balance</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead style="background:#f8fafc; border-bottom:1px solid #e2e8f0;">
+            <tr>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">#</th>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Identifier</th>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider hidden sm:table-cell">Name</th>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Balance</th>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider hidden md:table-cell">Total Earned</th>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider hidden md:table-cell">Redeemed</th>
+              <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wider hidden lg:table-cell">Joined</th>
+            </tr>
+          </thead>
+          <tbody id="loyaltyTable" class="divide-y divide-slate-100">
+            <tr><td colspan="7" class="text-center py-8 text-slate-400 text-sm">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end main container -->
+
+<!-- ── MENU ITEM MODAL ─────────────────────────────────────────────────────── -->
+<div id="menuModal" class="hidden fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
+  <div class="modal-card w-full max-w-2xl anim-scale" style="max-height:90vh; display:flex; flex-direction:column;">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
+      <h2 id="menuModalTitle" class="font-bold text-slate-900">Add Menu Item</h2>
+      <button onclick="closeMenuModal()" class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition cursor-pointer">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="overflow-y-auto flex-1 p-6 space-y-5">
+      <input type="hidden" id="menuItemId"/>
+      <!-- ── Basic info ── -->
+      <div class="grid grid-cols-2 gap-4">
+        <div class="col-span-2">
+          <label class="form-label">Item Name *</label>
+          <input id="miName" type="text" placeholder="e.g. Tibs" class="form-input"/>
+        </div>
+        <div>
+          <label class="form-label">Price (ETB) *</label>
+          <input id="miPrice" type="number" min="0.01" step="0.01" placeholder="150.00" class="form-input"/>
+        </div>
+        <div>
+          <label class="form-label">Category *</label>
+          <input id="miCategory" type="text" list="catSuggestions" placeholder="Main Dishes" class="form-input"/>
+          <datalist id="catSuggestions">
+            <option value="Main Dishes"/><option value="Vegetarian"/><option value="Breakfast"/>
+            <option value="Drinks"/><option value="Sides"/>
+          </datalist>
+        </div>
+        <div class="col-span-2">
+          <label class="form-label">Description</label>
+          <textarea id="miDescription" rows="2" placeholder="Brief description of the dish…" class="form-input resize-none"></textarea>
+        </div>
+        <div class="col-span-2">
+          <label class="form-label">Image URL</label>
+          <input id="miImageUrl" type="url" placeholder="https://… (optional)" class="form-input"/>
+        </div>
+        <div class="col-span-2 flex items-center gap-2.5">
+          <input id="miAvailable" type="checkbox" checked class="w-4 h-4 rounded cursor-pointer accent-slate-900"/>
+          <label for="miAvailable" class="text-sm text-slate-600 cursor-pointer">Available for ordering</label>
+        </div>
+      </div>
+      <div id="menuModalError" class="hidden text-sm text-red-600 bg-red-50 p-3 rounded-xl border border-red-200"></div>
+      <button onclick="saveMenuItem()" id="menuSaveBtn" class="btn-primary w-full justify-center py-3">Save Item</button>
+
+      <!-- ── Ingredients / Customization Options (edit mode only) ── -->
+      <div id="ingSection" class="hidden">
+        <div class="border-t border-slate-100 pt-5">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <p class="font-semibold text-sm text-slate-900">Customization Options</p>
+              <p class="text-xs text-slate-400 mt-0.5">Let customers choose toppings, spice levels, extras, etc.</p>
+            </div>
+            <button onclick="openIngredientForm()" class="btn-primary text-xs py-1.5 px-3">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+              Add Option
+            </button>
+          </div>
+
+          <!-- Add/Edit ingredient mini-form -->
+          <div id="ingForm" class="hidden mb-4 p-4 rounded-xl border border-slate-200" style="background:#f8fafc;">
+            <input type="hidden" id="ingFormId"/>
+            <div class="grid grid-cols-2 gap-3 mb-3">
+              <div>
+                <label class="form-label text-xs">Group Name *</label>
+                <input id="ingFormGroup" type="text" placeholder="e.g. Spice Level" class="form-input text-sm py-2" list="ingGroupSuggest"/>
+                <datalist id="ingGroupSuggest">
+                  <option value="Spice Level"/><option value="Protein"/><option value="Size"/><option value="Extras"/><option value="Sauce"/><option value="Side"/>
+                </datalist>
+              </div>
+              <div>
+                <label class="form-label text-xs">Option Name *</label>
+                <input id="ingFormName" type="text" placeholder="e.g. Hot" class="form-input text-sm py-2"/>
+              </div>
+              <div>
+                <label class="form-label text-xs">Extra Price (ETB)</label>
+                <input id="ingFormPrice" type="number" min="0" step="0.01" placeholder="0.00" value="0" class="form-input text-sm py-2"/>
+              </div>
+              <div>
+                <label class="form-label text-xs">Selection Type</label>
+                <select id="ingFormType" class="form-input text-sm py-2 cursor-pointer">
+                  <option value="radio">Single choice (radio)</option>
+                  <option value="checkbox">Multiple choice (checkbox)</option>
+                  <option value="toggle">Included ingredient (toggle — can be removed)</option>
+                </select>
+              </div>
+              <div class="flex items-center gap-4 col-span-2 pt-1">
+                <label class="flex items-center gap-2 cursor-pointer text-sm text-slate-600">
+                  <input id="ingFormRequired" type="checkbox" class="w-4 h-4 accent-slate-900 cursor-pointer"/>
+                  Required
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer text-sm text-slate-600">
+                  <input id="ingFormDefault" type="checkbox" class="w-4 h-4 accent-slate-900 cursor-pointer"/>
+                  Pre-selected
+                </label>
+                <div class="ml-auto">
+                  <label class="form-label text-xs mb-0.5">Sort Order</label>
+                  <input id="ingFormSort" type="number" min="0" value="0" class="form-input text-sm py-2 w-20"/>
+                </div>
+              </div>
+            </div>
+            <div id="ingFormError" class="hidden text-xs text-red-600 mb-2"></div>
+            <div class="flex gap-2">
+              <button onclick="saveIngredient()" id="ingFormSaveBtn" class="btn-primary text-xs py-1.5 px-4">Save Option</button>
+              <button onclick="closeIngredientForm()" class="text-xs px-4 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition cursor-pointer">Cancel</button>
+            </div>
+          </div>
+
+          <!-- Ingredients table -->
+          <div id="ingTableWrap" class="rounded-xl border border-slate-200 overflow-hidden">
+            <table class="w-full text-xs">
+              <thead style="background:#f8fafc; border-bottom:1px solid #e2e8f0;">
+                <tr>
+                  <th class="text-left px-3 py-2.5 font-semibold text-slate-500 uppercase tracking-wider">Group</th>
+                  <th class="text-left px-3 py-2.5 font-semibold text-slate-500 uppercase tracking-wider">Name</th>
+                  <th class="text-left px-3 py-2.5 font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">Type</th>
+                  <th class="text-left px-3 py-2.5 font-semibold text-slate-500 uppercase tracking-wider">+Price</th>
+                  <th class="text-left px-3 py-2.5 font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">Flags</th>
+                  <th class="text-right px-3 py-2.5 font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="ingTableBody" class="divide-y divide-slate-100">
+                <tr><td colspan="6" class="text-center text-slate-400 py-4 text-xs">No options yet. Click "Add Option" to begin.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── POS CONFIG TAB ───────────────────────────────────────────────────── -->
+  <div id="tab-posconfig" class="hidden">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+      <div>
+        <h2 class="font-bold text-slate-900 text-lg">POS Screen Configuration</h2>
+        <p class="text-xs text-slate-400 mt-0.5">Control exactly what the cashier sees. Toggle items, mark sold-out, set display order.</p>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="posConfigEnableAll()" class="btn-secondary text-xs">Enable All</button>
+        <button onclick="posConfigDisableAll()" class="btn-secondary text-xs" style="color:#ef4444;">Disable All</button>
+        <button onclick="savePosConfig()" id="posConfigSaveBtn" class="btn-primary">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          Save Changes
+        </button>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="flex gap-4 mb-4 text-xs text-slate-500">
+      <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-green-500 inline-block"></span> Visible on POS</span>
+      <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-red-400 inline-block"></span> Hidden on POS</span>
+      <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-amber-400 inline-block"></span> Marked Out of Stock</span>
+    </div>
+
+    <!-- Category filter -->
+    <div class="flex gap-2 mb-4 flex-wrap" id="posConfigCatBar">
+      <button class="pos-cat-filter-btn active text-xs px-3 py-1.5 rounded-full border border-slate-200 bg-slate-900 text-white font-semibold" onclick="filterPosConfig('ALL',this)">All</button>
+    </div>
+
+    <!-- Item grid -->
+    <div id="posConfigGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+      <div class="col-span-full text-center py-12 text-slate-400">Loading…</div>
+    </div>
+
+    <div id="posConfigSuccess" class="hidden mt-4 bg-green-50 border border-green-200 rounded-xl p-3 text-sm text-green-700 font-medium">Changes saved successfully.</div>
+  </div>
+
+</div>
+
+<!-- ── ADD STAFF MODAL ─────────────────────────────────────────────────────── -->
+<div id="staffModal" class="hidden fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
+  <div class="modal-card w-full max-w-md anim-scale">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+      <h2 class="font-bold text-slate-900">Add Staff Account</h2>
+      <button onclick="closeStaffModal()" class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition cursor-pointer">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="p-6 space-y-4">
+      <div>
+        <label class="form-label">Username *</label>
+        <input id="sfUsername" type="text" placeholder="kitchen_2" class="form-input"/>
+      </div>
+      <div>
+        <label class="form-label">Email *</label>
+        <input id="sfEmail" type="email" placeholder="staff@restaurant.et" class="form-input"/>
+      </div>
+      <div>
+        <label class="form-label">Password *</label>
+        <input id="sfPassword" type="password" placeholder="min 10 characters" class="form-input"/>
+      </div>
+      <div>
+        <label class="form-label">Role *</label>
+        <select id="sfRole" class="form-input cursor-pointer">
+          <option value="kitchen">Kitchen Staff</option>
+          <option value="cashier">Cashier</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+      <div id="staffModalError" class="hidden text-sm text-red-600 bg-red-50 p-3 rounded-xl border border-red-200"></div>
+      <button onclick="saveStaff()" class="btn-primary w-full justify-center py-3">
+        Create Account
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── SET PASSWORD MODAL (admin sets any staff password) ─────────────────── -->
+<div id="setPasswordModal" class="hidden fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
+  <div class="modal-card w-full max-w-sm anim-scale">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+      <div>
+        <h2 class="font-bold text-slate-900">Set Password</h2>
+        <p id="setPasswordSubtitle" class="text-xs text-slate-400 mt-0.5"></p>
+      </div>
+      <button onclick="closeSetPasswordModal()" class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition cursor-pointer">
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="p-6 space-y-4">
+      <div>
+        <label class="form-label">New Password *</label>
+        <div class="relative">
+          <input id="spNewPassword" type="password" placeholder="Min 8 characters" class="form-input pr-10"
+            oninput="checkPasswordStrength(this.value)" />
+          <button type="button" onclick="togglePwVisibility('spNewPassword', this)"
+            class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+            </svg>
+          </button>
+        </div>
+        <!-- Strength bar -->
+        <div class="mt-2 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+          <div id="spStrengthBar" class="h-full rounded-full transition-all duration-300" style="width:0%;background:#ef4444;"></div>
+        </div>
+        <p id="spStrengthLabel" class="text-xs text-slate-400 mt-1"></p>
+      </div>
+      <div>
+        <label class="form-label">Confirm Password *</label>
+        <input id="spConfirmPassword" type="password" placeholder="Repeat password" class="form-input" />
+      </div>
+      <div id="setPasswordError" class="hidden text-sm text-red-600 bg-red-50 p-3 rounded-xl border border-red-200"></div>
+      <button onclick="saveSetPassword()" id="spSaveBtn" class="btn-primary w-full justify-center py-3">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+        Save New Password
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── ORDER DETAIL MODAL ─────────────────────────────────────────────────── -->
+<div id="orderDetailModal" class="hidden fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
+  <div class="modal-card w-full max-w-lg max-h-[90vh] overflow-y-auto anim-scale">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white rounded-t-2xl">
+      <h2 class="font-bold text-slate-900">Order Details</h2>
+      <button onclick="closeOrderDetail()" class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition cursor-pointer">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div id="orderDetailContent" class="p-6"></div>
+  </div>
+</div>
+
+<!-- ── CONFIRM DIALOG ─────────────────────────────────────────────────────── -->
+<div id="confirmDialog" class="hidden fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
+  <div class="modal-card w-full max-w-sm p-6 text-center anim-scale">
+    <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+    </div>
+    <h3 class="font-bold text-slate-900 text-lg mb-1.5" id="confirmTitle">Confirm Action</h3>
+    <p class="text-slate-500 text-sm mb-6" id="confirmMessage"></p>
+    <div class="flex gap-3">
+      <button onclick="closeConfirm()"
+        class="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium transition text-sm cursor-pointer">
+        Cancel
+      </button>
+      <button id="confirmOkBtn"
+        class="flex-1 py-2.5 rounded-xl font-semibold text-sm cursor-pointer transition"
+        style="background:#0f172a;color:white;">
+        Confirm
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── RESET PICKUP MODAL ─────────────────────────────────────────────────── -->
+<div id="resetPickupModal" class="hidden fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
+  <div class="modal-card w-full max-w-md anim-scale">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+      <div>
+        <h2 class="font-bold text-slate-900">Reset Pickup</h2>
+        <p class="text-xs text-slate-400 mt-0.5">Order <span id="resetOrderNum" class="font-mono font-bold text-slate-700"></span></p>
+      </div>
+      <button onclick="closeResetPickup()" class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition cursor-pointer">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="p-6 space-y-4">
+      <input type="hidden" id="resetOrderId"/>
+      <div class="rounded-xl p-3.5 border" style="background:#fef9c3;border-color:#fde68a;">
+        <p class="text-xs text-amber-700 font-semibold">This will reset the order from PICKED_UP back to READY. The action is permanently logged in the audit trail.</p>
+      </div>
+      <div>
+        <label class="form-label">Reason for reset *</label>
+        <textarea id="resetReason" rows="3" placeholder="e.g. Wrong order given to customer, accidental scan…" class="form-input resize-none"></textarea>
+      </div>
+      <div id="resetError" class="hidden text-sm text-red-600 bg-red-50 p-3 rounded-xl border border-red-200"></div>
+      <button onclick="submitResetPickup()" id="resetSubmitBtn" class="btn-primary w-full justify-center py-3" style="background:#6d28d9;">
+        Reset Pickup
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── REWARD ITEM MODAL ──────────────────────────────────────────────────── -->
+<div id="rewardModal" class="hidden fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
+  <div class="modal-card w-full max-w-lg max-h-[90vh] overflow-y-auto anim-scale">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white rounded-t-2xl">
+      <h2 id="rewardModalTitle" class="font-bold text-slate-900">Add Reward Item</h2>
+      <button onclick="closeRewardModal()" class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition cursor-pointer">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="p-6 space-y-4">
+      <input type="hidden" id="rewardItemId"/>
+      <div>
+        <label class="form-label">Reward Name *</label>
+        <input id="rwName" type="text" placeholder="e.g. Free Injera with Wot" class="form-input"/>
+      </div>
+      <div>
+        <label class="form-label">Description</label>
+        <textarea id="rwDescription" rows="2" placeholder="Brief description shown to customer…" class="form-input resize-none"></textarea>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="form-label">Points Required *</label>
+          <input id="rwPoints" type="number" min="1" placeholder="e.g. 100" class="form-input"/>
+        </div>
+        <div>
+          <label class="form-label">Sort Order</label>
+          <input id="rwSortOrder" type="number" min="0" value="0" placeholder="0 = top" class="form-input"/>
+        </div>
+        <div>
+          <label class="form-label">Quantity Limit <span class="font-normal text-slate-400">(blank = unlimited)</span></label>
+          <input id="rwQtyLimit" type="number" min="1" placeholder="Leave blank for unlimited" class="form-input"/>
+        </div>
+        <div>
+          <label class="form-label">Valid Until <span class="font-normal text-slate-400">(optional)</span></label>
+          <input id="rwValidUntil" type="date" class="form-input"/>
+        </div>
+      </div>
+      <div>
+        <label class="form-label">Image URL <span class="font-normal text-slate-400">(optional)</span></label>
+        <input id="rwImageUrl" type="url" placeholder="https://…" class="form-input"/>
+      </div>
+      <div class="flex items-center gap-2.5">
+        <input id="rwIsActive" type="checkbox" checked class="w-4 h-4 rounded cursor-pointer accent-slate-900"/>
+        <label for="rwIsActive" class="text-sm text-slate-600 cursor-pointer">Active (visible to customers)</label>
+      </div>
+      <div id="rewardModalError" class="hidden text-sm text-red-600 bg-red-50 p-3 rounded-xl border border-red-200"></div>
+      <button onclick="saveReward()" id="rewardSaveBtn" class="btn-primary w-full justify-center py-3">
+        Save Reward
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── TOAST ──────────────────────────────────────────────────────────────── -->
+<div id="toast" class="hidden fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl shadow-xl text-white text-sm font-medium flex items-center gap-2.5" style="min-width:200px;"></div>
+
+<script>
+// ── TRANSLATIONS ─────────────────────────────────────────────────────────────
+const TRANSLATIONS = {
+  en: {
+    'nav.title':                  'Admin Panel',
+    'nav.customer':               'Customer View',
+    'nav.signout':                'Sign Out',
+    'tab.analytics':              'Analytics',
+    'tab.menu':                   'Menu',
+    'tab.orders':                 'Orders',
+    'tab.staff':                  'Staff',
+    'tab.security':               'Security',
+    'tab.reviews':                'Reviews',
+    'tab.loyalty':                'Loyalty',
+    'tab.posconfig':              'POS Config',
+    'analytics.orders_by_status': 'Orders by Status',
+    'analytics.quick_actions':    'Quick Actions',
+    'menu.title':                 'Menu Items',
+    'menu.sub':                   'Manage your restaurant menu',
+    'btn.add_item':               'Add Item',
+    'orders.title':               'All Orders',
+    'orders.sub':                 'Full order history and management',
+    'staff.title':                'Staff Accounts',
+    'staff.sub':                  'Manage team members and roles',
+    'btn.add_staff':              'Add Staff',
+    'security.title':             'Security & Audit',
+    'security.sub':               'Redemption audit trail and suspicious activity flags',
+    'reviews.title':              'Customer Reviews',
+    'reviews.sub':                'Manage and moderate customer feedback',
+    'loyalty.title':              'Loyalty Programme',
+    'loyalty.sub':                '10 ETB = 1 point · Manage members, rewards catalog & claims',
+    'btn.add_reward':             'Add Reward',
+  },
+  am: {
+    'nav.title':                  'የአስተዳዳሪ ፓናል',
+    'nav.customer':               'የደንበኛ እይታ',
+    'nav.signout':                'ውጣ',
+    'tab.analytics':              'ትንተና',
+    'tab.menu':                   'ምናሌ',
+    'tab.orders':                 'ትዕዛዞች',
+    'tab.staff':                  'ሰራተኞች',
+    'tab.security':               'ደህንነት',
+    'tab.reviews':                'ግምገማዎች',
+    'tab.loyalty':                'ታማኝነት',
+    'tab.posconfig':              'የPOS ማዋቀሪያ',
+    'analytics.orders_by_status': 'ትዕዛዞች በሁኔታ',
+    'analytics.quick_actions':    'ፈጣን ድርጊቶች',
+    'menu.title':                 'የምናሌ ምርቶች',
+    'menu.sub':                   'የምግብ ቤቱን ምናሌ ያስተዳድሩ',
+    'btn.add_item':               'ምርት አክል',
+    'orders.title':               'ሁሉም ትዕዛዞች',
+    'orders.sub':                 'ሙሉ የትዕዛዝ ታሪክ እና አስተዳደር',
+    'staff.title':                'የሰራተኛ መለያዎች',
+    'staff.sub':                  'የቡድን አባላትን እና ሚናዎችን ያስተዳድሩ',
+    'btn.add_staff':              'ሰራተኛ አክል',
+    'security.title':             'ደህንነት እና ኦዲት',
+    'security.sub':               'የቤዛ ኦዲት ምዝግብ ማስታወሻ እና አጠራጣሪ እንቅስቃሴ ምልክቶች',
+    'reviews.title':              'የደንበኛ ግምገማዎች',
+    'reviews.sub':                'የደንበኛ አስተያየቶችን ያስተዳድሩ',
+    'loyalty.title':              'የታማኝነት ፕሮግራም',
+    'loyalty.sub':                '10 ብር = 1 ነጥብ · አባላትን፣ ሽልማቶችን እና ጥያቄዎችን ያስተዳድሩ',
+    'btn.add_reward':             'ሽልማት አክል',
+  }
+};
+
+let currentLang = localStorage.getItem('lang') || 'en';
+
+function t(key) {
+  return (TRANSLATIONS[currentLang] && TRANSLATIONS[currentLang][key])
+       || (TRANSLATIONS['en'][key])
+       || key;
+}
+
+function applyTranslations() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    el.textContent = t(key);
+  });
+}
+
+function setLanguage(lang) {
+  currentLang = lang;
+  localStorage.setItem('lang', lang);
+  document.body.classList.toggle('lang-am', lang === 'am');
+  document.getElementById('langEn').classList.toggle('active', lang === 'en');
+  document.getElementById('langAm').classList.toggle('active', lang === 'am');
+  applyTranslations();
+}
+
+// ── MAIN ─────────────────────────────────────────────────────────────────────
+const API    = window.location.origin;
+const TOKEN  = localStorage.getItem('token');
+const hdr    = { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
+
+let allMenuItems  = [];
+let adminRewards  = [];
+let confirmCallback = null;
+
+// ── INIT ────────────────────────────────────────────────────────────────────
+async function init() {
+  // Apply saved language
+  if (currentLang === 'am') {
+    document.body.classList.add('lang-am');
+    document.getElementById('langAm').classList.add('active');
+    document.getElementById('langEn').classList.remove('active');
+  }
+  applyTranslations();
+
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  document.getElementById('adminUser').textContent = `Logged in as ${user.username || '?'}`;
+  await Promise.all([ loadAnalytics(), loadMenu(), loadOrders(), loadStaff() ]);
+}
+
+// ── TAB SWITCHING ────────────────────────────────────────────────────────────
+function switchTab(name) {
+  ['analytics','menu','orders','staff','security','reviews','loyalty'].forEach(t => {
+    const el = document.getElementById(`tab-${t}`);
+    if (t === name) {
+      el.classList.remove('hidden');
+      el.style.animation = 'none';
+      requestAnimationFrame(() => {
+        el.style.animation = '';
+        el.classList.add('anim-up');
+      });
+    } else {
+      el.classList.add('hidden');
+      el.classList.remove('anim-up');
+    }
+  });
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === name);
+  });
+  if (name === 'security') loadSecurity();
+  if (name === 'reviews')  loadAdminReviews();
+  if (name === 'loyalty')  loadAdminLoyalty();
+}
+
+function filterOrdersByStatus(status) {
+  document.getElementById('orderStatusFilter').value = status;
+  loadOrders();
+}
+
+// ── ANALYTICS ────────────────────────────────────────────────────────────────
+async function loadAnalytics() {
+  const res = await fetch(`${API}/api/admin/analytics`, { headers: hdr });
+  if (!res.ok) return;
+  const d = await res.json();
+
+  const cards = [
+    {
+      label: 'Total Orders',
+      value: d.total_orders,
+      iconBg: '#0f172a',
+      icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>`,
+    },
+    {
+      label: "Today's Orders",
+      value: d.today_orders,
+      iconBg: '#475569',
+      icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>`,
+    },
+    {
+      label: 'Total Revenue',
+      value: `ETB ${d.total_revenue.toFixed(2)}`,
+      iconBg: '#16A34A',
+      icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`,
+    },
+    {
+      label: "Today's Revenue",
+      value: `ETB ${d.today_revenue.toFixed(2)}`,
+      iconBg: '#15803d',
+      icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>`,
+    },
+    {
+      label: 'Cash Pending',
+      value: d.cash_pending_orders,
+      iconBg: '#CA8A04',
+      icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`,
+    },
+  ];
+
+  document.getElementById('analyticsGrid').innerHTML = cards.map((c, i) => `
+    <div class="stat-card anim-up" style="animation-delay:${i * 60}ms;">
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-xs font-medium text-slate-500">${c.label}</span>
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:${c.iconBg};">${c.icon}</div>
+      </div>
+      <p class="text-2xl font-bold text-slate-900">${c.value}</p>
+    </div>
+  `).join('');
+
+  const statuses = [
+    { key:'pending_orders',      label:'Pending (Online)',  color:'#94a3b8' },
+    { key:'cash_pending_orders', label:'Cash Pending',      color:'#CA8A04' },
+    { key:'paid_orders',         label:'Paid',              color:'#3b82f6' },
+    { key:'preparing_orders',    label:'Preparing',         color:'#f97316' },
+    { key:'ready_orders',        label:'Ready',             color:'#16A34A' },
+    { key:'picked_up_orders',    label:'Picked Up',         color:'#7c3aed' },
+    { key:'completed_orders',    label:'Completed',         color:'#64748b' },
+  ];
+  const total = d.total_orders || 1;
+  document.getElementById('statusBreakdown').innerHTML = statuses.map(s => `
+    <div>
+      <div class="flex justify-between text-xs text-slate-600 mb-1.5">
+        <span class="font-medium">${s.label}</span><span class="font-semibold text-slate-900">${d[s.key]}</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" style="width:${Math.round((d[s.key]/total)*100)}%; background:${s.color};"></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── MENU ─────────────────────────────────────────────────────────────────────
+async function loadMenu(filterCat = '') {
+  const res = await fetch(`${API}/api/admin/menu`, { headers: hdr });
+  if (!res.ok) return;
+  allMenuItems = await res.json();
+
+  const cats = [...new Set(allMenuItems.map(i => i.category))].sort();
+  const filterBar = document.getElementById('menuCatFilter');
+  const btnBase = 'px-3 py-1.5 text-xs rounded-full font-medium whitespace-nowrap cursor-pointer transition';
+  filterBar.innerHTML =
+    `<button onclick="loadMenu()" class="${btnBase}" style="${!filterCat ? 'background:#0f172a;color:white;' : 'background:white;border:1px solid #e2e8f0;color:#475569;'}">All</button>` +
+    cats.map(c => `<button onclick="loadMenu('${escHtml(c)}')" class="${btnBase}" style="${filterCat===c ? 'background:#0f172a;color:white;' : 'background:white;border:1px solid #e2e8f0;color:#475569;'}">${escHtml(c)}</button>`).join('');
+
+  const displayed = filterCat ? allMenuItems.filter(i => i.category === filterCat) : allMenuItems;
+
+  document.getElementById('menuTable').innerHTML = displayed.map(item => `
+    <tr class="table-row">
+      <td class="px-4 py-3.5">
+        <p class="font-semibold text-slate-900 text-sm">${escHtml(item.name)}</p>
+        <p class="text-xs text-slate-400 mt-0.5 hidden sm:block">${escHtml(item.description||'')}</p>
+      </td>
+      <td class="px-4 py-3.5 text-slate-500 text-sm hidden sm:table-cell">${escHtml(item.category)}</td>
+      <td class="px-4 py-3.5 font-semibold text-slate-900 text-sm">ETB ${item.price.toFixed(2)}</td>
+      <td class="px-4 py-3.5 hidden md:table-cell">
+        <span class="badge ${item.is_available ? 'text-green-700' : 'text-slate-500'}" style="background:${item.is_available ? '#dcfce7' : '#f1f5f9'};">
+          ${item.is_available ? 'Available' : 'Hidden'}
+        </span>
+      </td>
+      <td class="px-4 py-3.5 text-right">
+        <div class="flex justify-end gap-1.5">
+          <button onclick="editMenuItem(${item.id})" class="text-xs px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium transition cursor-pointer">Edit</button>
+          <button onclick="confirmDelete(${item.id},'${escHtml(item.name)}')" class="text-xs px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 font-medium transition cursor-pointer">Delete</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function openMenuModal(item = null) {
+  document.getElementById('menuModalTitle').textContent = item ? 'Edit Menu Item' : 'Add Menu Item';
+  document.getElementById('menuItemId').value    = item?.id || '';
+  document.getElementById('miName').value        = item?.name || '';
+  document.getElementById('miPrice').value       = item?.price || '';
+  document.getElementById('miCategory').value    = item?.category || '';
+  document.getElementById('miDescription').value = item?.description || '';
+  document.getElementById('miImageUrl').value    = item?.image_url || '';
+  document.getElementById('miAvailable').checked = item ? item.is_available : true;
+  document.getElementById('menuModalError').classList.add('hidden');
+  closeIngredientForm();
+
+  // Show ingredients section only when editing (we need an ID to attach to)
+  const ingSection = document.getElementById('ingSection');
+  if (item?.id) {
+    ingSection.classList.remove('hidden');
+    loadIngredients(item.id);
+  } else {
+    ingSection.classList.add('hidden');
+  }
+  document.getElementById('menuModal').classList.remove('hidden');
+}
+function closeMenuModal() {
+  document.getElementById('menuModal').classList.add('hidden');
+  closeIngredientForm();
+}
+
+// ── Ingredients / Customization Options ───────────────────────────────────────
+
+async function loadIngredients(itemId) {
+  const tbody = document.getElementById('ingTableBody');
+  tbody.innerHTML = '<tr><td colspan="6" class="text-center text-slate-400 py-4 text-xs">Loading…</td></tr>';
+  try {
+    const res  = await fetch(`${API}/api/admin/menu/${itemId}/ingredients`, { headers: hdr });
+    const ings = await res.json();
+    if (!ings.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-slate-400 py-4 text-xs">No options yet. Click "Add Option" to begin.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = ings.map(ing => `
+      <tr class="hover:bg-slate-50 transition">
+        <td class="px-3 py-2.5 font-medium text-slate-700">${escHtml(ing.group_name)}</td>
+        <td class="px-3 py-2.5 text-slate-600">${escHtml(ing.name)}</td>
+        <td class="px-3 py-2.5 text-slate-400 hidden sm:table-cell">${ing.input_type === 'radio' ? 'Single' : ing.input_type === 'toggle' ? 'Toggle' : 'Multi'}</td>
+        <td class="px-3 py-2.5 font-semibold ${ing.price_delta > 0 ? 'text-amber-600' : 'text-slate-400'}">
+          ${ing.price_delta > 0 ? `+${ing.price_delta.toFixed(2)}` : 'Free'}
+        </td>
+        <td class="px-3 py-2.5 hidden sm:table-cell">
+          <div class="flex gap-1 flex-wrap">
+            ${ing.is_required  ? '<span class="badge text-red-600" style="background:#fee2e2;">Req</span>' : ''}
+            ${ing.is_default   ? '<span class="badge text-blue-600" style="background:#dbeafe;">Default</span>' : ''}
+            ${!ing.is_available? '<span class="badge text-slate-400" style="background:#f1f5f9;">Hidden</span>' : ''}
+          </div>
+        </td>
+        <td class="px-3 py-2.5 text-right">
+          <div class="flex justify-end gap-1">
+            <button onclick="editIngredient(${ing.id})" class="text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium transition cursor-pointer">Edit</button>
+            <button onclick="deleteIngredient(${ing.id})" class="text-xs px-2 py-1 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 font-medium transition cursor-pointer">Del</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-red-400 py-4 text-xs">Could not load options.</td></tr>';
+  }
+}
+
+function openIngredientForm(ing = null) {
+  document.getElementById('ingFormId').value      = ing?.id || '';
+  document.getElementById('ingFormGroup').value   = ing?.group_name || '';
+  document.getElementById('ingFormName').value    = ing?.name || '';
+  document.getElementById('ingFormPrice').value   = ing?.price_delta ?? 0;
+  document.getElementById('ingFormType').value    = ing?.input_type || 'checkbox';
+  document.getElementById('ingFormRequired').checked = ing?.is_required ?? false;
+  document.getElementById('ingFormDefault').checked  = ing?.is_default ?? false;
+  document.getElementById('ingFormSort').value    = ing?.sort_order ?? 0;
+  document.getElementById('ingFormError').classList.add('hidden');
+  document.getElementById('ingFormSaveBtn').textContent = ing ? 'Update Option' : 'Save Option';
+  document.getElementById('ingForm').classList.remove('hidden');
+  document.getElementById('ingFormGroup').focus();
+}
+
+function closeIngredientForm() {
+  document.getElementById('ingForm')?.classList.add('hidden');
+}
+
+async function saveIngredient() {
+  const itemId   = document.getElementById('menuItemId').value;
+  const ingId    = document.getElementById('ingFormId').value;
+  const group    = document.getElementById('ingFormGroup').value.trim();
+  const name     = document.getElementById('ingFormName').value.trim();
+  const price    = parseFloat(document.getElementById('ingFormPrice').value) || 0;
+  const type     = document.getElementById('ingFormType').value;
+  const required = document.getElementById('ingFormRequired').checked;
+  const def      = document.getElementById('ingFormDefault').checked;
+  const sort     = parseInt(document.getElementById('ingFormSort').value) || 0;
+  const errEl    = document.getElementById('ingFormError');
+
+  errEl.classList.add('hidden');
+  if (!group || !name) { errEl.textContent = 'Group name and option name are required.'; errEl.classList.remove('hidden'); return; }
+  if (isNaN(price) || price < 0) { errEl.textContent = 'Price must be 0 or a positive number.'; errEl.classList.remove('hidden'); return; }
+
+  const payload = { group_name: group, name, price_delta: price, input_type: type, is_required: required, is_default: def, sort_order: sort };
+  const btn = document.getElementById('ingFormSaveBtn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  try {
+    const url    = ingId ? `${API}/api/admin/ingredients/${ingId}` : `${API}/api/admin/menu/${itemId}/ingredients`;
+    const method = ingId ? 'PUT' : 'POST';
+    const res    = await fetch(url, { method, headers: hdr, body: JSON.stringify(payload) });
+    const data   = await res.json();
+    if (!res.ok) { errEl.textContent = data.detail || 'Save failed'; errEl.classList.remove('hidden'); return; }
+    closeIngredientForm();
+    loadIngredients(parseInt(itemId));
+    showToast(ingId ? 'Option updated' : 'Option added', 'green');
+  } catch(e) {
+    errEl.textContent = 'Network error.'; errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false; btn.textContent = document.getElementById('ingFormId').value ? 'Update Option' : 'Save Option';
+  }
+}
+
+async function editIngredient(ingId) {
+  const itemId = document.getElementById('menuItemId').value;
+  // Load from table data — re-fetch to get fresh data
+  try {
+    const res  = await fetch(`${API}/api/admin/menu/${itemId}/ingredients`, { headers: hdr });
+    const ings = await res.json();
+    const ing  = ings.find(i => i.id === ingId);
+    if (ing) openIngredientForm(ing);
+  } catch(e) { showToast('Could not load option', 'red'); }
+}
+
+async function deleteIngredient(ingId) {
+  const itemId = document.getElementById('menuItemId').value;
+  openConfirm('Delete Option', 'Remove this customization option?', async () => {
+    const res = await fetch(`${API}/api/admin/ingredients/${ingId}`, { method: 'DELETE', headers: hdr });
+    if (res.ok || res.status === 204) { loadIngredients(parseInt(itemId)); showToast('Option deleted', 'red'); }
+    else showToast('Delete failed', 'red');
+  });
+}
+
+function editMenuItem(id) {
+  const item = allMenuItems.find(i => i.id === id);
+  if (item) openMenuModal(item);
+}
+
+async function saveMenuItem() {
+  const id    = document.getElementById('menuItemId').value;
+  const name  = document.getElementById('miName').value.trim();
+  const price = parseFloat(document.getElementById('miPrice').value);
+  const cat   = document.getElementById('miCategory').value.trim();
+  const desc  = document.getElementById('miDescription').value.trim();
+  const img   = document.getElementById('miImageUrl').value.trim();
+  const avail = document.getElementById('miAvailable').checked;
+
+  if (!name || !cat || isNaN(price) || price <= 0) {
+    const errEl = document.getElementById('menuModalError');
+    errEl.textContent = 'Name, category, and a valid price are required.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  const payload = { name, price, category: cat, description: desc||null, image_url: img||null, is_available: avail };
+  const btn = document.getElementById('menuSaveBtn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  try {
+    const res = await fetch(
+      id ? `${API}/api/admin/menu/${id}` : `${API}/api/admin/menu`,
+      { method: id ? 'PUT' : 'POST', headers: hdr, body: JSON.stringify(payload) }
+    );
+    const data = await res.json();
+    if (!res.ok) {
+      const errEl = document.getElementById('menuModalError');
+      errEl.textContent = data.detail||'Save failed';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    if (!id) {
+      // New item created — reveal ingredients section with the new ID
+      document.getElementById('menuItemId').value = data.id;
+      document.getElementById('menuModalTitle').textContent = 'Edit Menu Item';
+      document.getElementById('ingSection').classList.remove('hidden');
+      loadIngredients(data.id);
+      showToast('Item created! Now add customization options below.', 'green');
+    } else {
+      closeMenuModal();
+      showToast('Item updated', 'green');
+    }
+    loadMenu();
+  } finally { btn.disabled = false; btn.textContent = 'Save Item'; }
+}
+
+function confirmDelete(id, name) {
+  openConfirm('Delete Item', `Delete "${name}"? This cannot be undone.`, async () => {
+    const res = await fetch(`${API}/api/admin/menu/${id}`, { method: 'DELETE', headers: hdr });
+    if (res.ok || res.status === 204) { loadMenu(); showToast('Item deleted', 'red'); }
+    else showToast('Delete failed', 'red');
+  });
+}
+
+// ── ORDERS ───────────────────────────────────────────────────────────────────
+async function loadOrders() {
+  const status = document.getElementById('orderStatusFilter')?.value || '';
+  const method = document.getElementById('orderPayFilter')?.value || '';
+  let url = `${API}/api/admin/orders?`;
+  if (status) url += `status=${status}&`;
+  if (method) url += `payment_method=${method}&`;
+
+  const res = await fetch(url, { headers: hdr });
+  if (!res.ok) return;
+  const orders = await res.json();
+
+  const tbody = document.getElementById('ordersTable');
+  const empty = document.getElementById('ordersEmpty');
+  empty.classList.toggle('hidden', orders.length > 0);
+
+  const statusStyles = {
+    PENDING:      { bg:'#f1f5f9', color:'#475569' },
+    CASH_PENDING: { bg:'#fef9c3', color:'#854d0e' },
+    PAID:         { bg:'#dbeafe', color:'#1e40af' },
+    PREPARING:    { bg:'#fed7aa', color:'#9a3412' },
+    READY:        { bg:'#dcfce7', color:'#166534' },
+    PICKED_UP:    { bg:'#ede9fe', color:'#6d28d9' },
+    COMPLETED:    { bg:'#e2e8f0', color:'#475569' },
+    CANCELLED:    { bg:'#fee2e2', color:'#991b1b' },
+    FAILED:       { bg:'#fecaca', color:'#7f1d1d' },
+  };
+
+  tbody.innerHTML = orders.map(o => {
+    const s = statusStyles[o.status] || { bg:'#f1f5f9', color:'#475569' };
+    return `
+    <tr class="table-row">
+      <td class="px-4 py-3.5 font-mono text-xs font-bold text-slate-700">${o.order_number}</td>
+      <td class="px-4 py-3.5">
+        <p class="font-semibold text-sm text-slate-900">${escHtml(o.customer_name)}</p>
+        ${o.customer_phone ? `<p class="text-xs text-slate-400 mt-0.5">${escHtml(o.customer_phone)}</p>` : ''}
+      </td>
+      <td class="px-4 py-3.5 font-semibold text-sm text-slate-900">ETB ${o.total_amount.toFixed(2)}</td>
+      <td class="px-4 py-3.5">
+        <span class="badge" style="background:${s.bg};color:${s.color};">${o.status}</span>
+      </td>
+      <td class="px-4 py-3.5 text-xs text-slate-500 capitalize">${o.payment_method}</td>
+      <td class="px-4 py-3.5 text-xs text-slate-400">${new Date(o.created_at).toLocaleDateString()}</td>
+      <td class="px-4 py-3.5 text-right">
+        <div class="flex justify-end gap-1.5">
+          <button onclick="openOrderDetail(${o.id})" class="text-xs px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition cursor-pointer">View</button>
+          ${o.status === 'CASH_PENDING'
+            ? `<button onclick="markCashPaid(${o.id})" class="text-xs px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer" style="background:#dcfce7;color:#166534;" onmouseover="this.style.background='#bbf7d0'" onmouseout="this.style.background='#dcfce7'">Mark Paid</button>`
+            : ''}
+          ${o.status === 'PICKED_UP'
+            ? `<button onclick="openResetPickup(${o.id},'${o.order_number}')" class="text-xs px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer" style="background:#ede9fe;color:#6d28d9;" onmouseover="this.style.background='#ddd6fe'" onmouseout="this.style.background='#ede9fe'">Reset</button>`
+            : ''}
+          ${!['COMPLETED','PICKED_UP','CANCELLED'].includes(o.status)
+            ? `<button onclick="cancelOrder(${o.id},'${o.order_number}')" class="text-xs px-2.5 py-1 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition cursor-pointer">Cancel</button>`
+            : ''}
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function markCashPaid(orderId) {
+  const res = await fetch(`${API}/api/admin/orders/${orderId}/mark-cash-paid`, { method: 'POST', headers: hdr });
+  if (res.ok) { loadOrders(); loadAnalytics(); showToast('Cash order marked as paid', 'green'); }
+  else { const d = await res.json(); showToast(d.detail||'Failed', 'red'); }
+}
+
+function cancelOrder(id, num) {
+  openConfirm('Cancel Order', `Cancel order ${num}?`, async () => {
+    const res = await fetch(`${API}/api/admin/orders/${id}/cancel`, { method: 'POST', headers: hdr });
+    if (res.ok) { loadOrders(); showToast('Order cancelled', 'yellow'); }
+    else { const d = await res.json(); showToast(d.detail||'Failed', 'red'); }
+  });
+}
+
+function openResetPickup(id, num) {
+  document.getElementById('resetOrderId').value  = id;
+  document.getElementById('resetOrderNum').textContent = num;
+  document.getElementById('resetReason').value   = '';
+  document.getElementById('resetError').classList.add('hidden');
+  document.getElementById('resetPickupModal').classList.remove('hidden');
+}
+function closeResetPickup() { document.getElementById('resetPickupModal').classList.add('hidden'); }
+
+async function submitResetPickup() {
+  const id     = document.getElementById('resetOrderId').value;
+  const reason = document.getElementById('resetReason').value.trim();
+  const errEl  = document.getElementById('resetError');
+  if (!reason) { errEl.textContent = 'Please provide a reason.'; errEl.classList.remove('hidden'); return; }
+  const btn = document.getElementById('resetSubmitBtn');
+  btn.disabled = true; btn.textContent = 'Resetting…';
+  try {
+    const res = await fetch(`${API}/api/admin/orders/${id}/reset-pickup`, {
+      method: 'POST', headers: hdr, body: JSON.stringify({ reason })
+    });
+    if (res.ok) {
+      closeResetPickup(); loadOrders(); loadAnalytics();
+      showToast('Pickup reset — order is READY again', 'blue');
+    } else {
+      const d = await res.json();
+      errEl.textContent = d.detail || 'Reset failed';
+      errEl.classList.remove('hidden');
+    }
+  } finally { btn.disabled = false; btn.textContent = 'Reset Pickup'; }
+}
+
+async function openOrderDetail(id) {
+  const res = await fetch(`${API}/api/admin/orders`, { headers: hdr });
+  if (!res.ok) return;
+  const orders = await res.json();
+  const o = orders.find(x => x.id === id);
+  if (!o) return;
+
+  document.getElementById('orderDetailContent').innerHTML = `
+    <div class="space-y-3 text-sm">
+      <div class="grid grid-cols-2 gap-2.5">
+        <div class="rounded-xl p-3 bg-slate-50 border border-slate-100">
+          <p class="text-slate-400 text-xs mb-1">Order #</p>
+          <p class="font-mono font-bold text-slate-900">${o.order_number}</p>
+        </div>
+        <div class="rounded-xl p-3 bg-slate-50 border border-slate-100">
+          <p class="text-slate-400 text-xs mb-1">Status</p>
+          <p class="font-bold text-slate-900">${o.status}</p>
+        </div>
+        <div class="rounded-xl p-3 bg-slate-50 border border-slate-100">
+          <p class="text-slate-400 text-xs mb-1">Customer</p>
+          <p class="font-semibold text-slate-900">${escHtml(o.customer_name)}</p>
+        </div>
+        <div class="rounded-xl p-3 bg-slate-50 border border-slate-100">
+          <p class="text-slate-400 text-xs mb-1">Payment</p>
+          <p class="font-semibold text-slate-900 capitalize">${o.payment_method}</p>
+        </div>
+        ${o.customer_phone ? `<div class="rounded-xl p-3 bg-slate-50 border border-slate-100"><p class="text-slate-400 text-xs mb-1">Phone</p><p class="text-slate-800">${escHtml(o.customer_phone)}</p></div>` : ''}
+        ${o.customer_email ? `<div class="rounded-xl p-3 bg-slate-50 border border-slate-100"><p class="text-slate-400 text-xs mb-1">Email</p><p class="text-xs text-slate-800">${escHtml(o.customer_email)}</p></div>` : ''}
+      </div>
+      <div class="rounded-xl p-4 bg-slate-50 border border-slate-100 space-y-2">
+        ${o.items_snapshot.map(i => `
+          <div class="flex justify-between text-sm">
+            <span class="text-slate-700">${escHtml(i.name)} <span class="text-slate-400">×${i.quantity}</span></span>
+            <span class="font-semibold text-slate-900">ETB ${i.subtotal.toFixed(2)}</span>
+          </div>`).join('')}
+        <div class="border-t border-slate-200 pt-2.5 flex justify-between font-bold">
+          <span class="text-slate-900">Total</span>
+          <span class="text-slate-900">ETB ${o.total_amount.toFixed(2)}</span>
+        </div>
+      </div>
+      ${o.receipt_code ? `
+        <div class="rounded-xl p-3.5 border" style="background:#f0fdf4;border-color:#bbf7d0;">
+          <p class="text-xs text-green-600 font-medium mb-1">Receipt Code</p>
+          <p class="font-mono font-bold text-green-800 tracking-widest text-lg">${o.receipt_code}</p>
+        </div>` : ''}
+      ${o.notes ? `
+        <div class="rounded-xl p-3.5 border" style="background:#fffbeb;border-color:#fde68a;">
+          <p class="text-xs text-amber-600 font-medium mb-1">Special Notes</p>
+          <p class="text-amber-800 text-sm">${escHtml(o.notes)}</p>
+        </div>` : ''}
+      <p class="text-slate-400 text-xs pt-1">Placed: ${new Date(o.created_at).toLocaleString()}</p>
+    </div>
+  `;
+  document.getElementById('orderDetailModal').classList.remove('hidden');
+}
+function closeOrderDetail() { document.getElementById('orderDetailModal').classList.add('hidden'); }
+
+// ── STAFF ─────────────────────────────────────────────────────────────────────
+async function loadStaff() {
+  const res = await fetch(`${API}/api/auth/users`, { headers: hdr });
+  if (!res.ok) return;
+  const users = await res.json();
+
+  const roleBadge = {
+    admin:    { bg:'#fee2e2', color:'#991b1b' },
+    kitchen:  { bg:'#fef9c3', color:'#854d0e' },
+    cashier:  { bg:'#dbeafe', color:'#1e40af' },
+    customer: { bg:'#f1f5f9', color:'#475569' },
+  };
+  const roleIcon = {
+    admin:    '#0f172a',
+    kitchen:  '#CA8A04',
+    cashier:  '#3b82f6',
+    customer: '#94a3b8',
+  };
+
+  document.getElementById('staffList').innerHTML = users.map(u => {
+    const rb = roleBadge[u.role] || { bg:'#f1f5f9', color:'#475569' };
+    const ic = roleIcon[u.role] || '#94a3b8';
+    return `
+    <div class="staff-card anim-up">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-sm flex-shrink-0" style="background:${ic};">
+          ${u.username[0].toUpperCase()}
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="font-semibold text-slate-900 text-sm">${escHtml(u.username)}</p>
+          <p class="text-xs text-slate-400 truncate">${escHtml(u.email)}</p>
+        </div>
+        <span class="badge" style="background:${rb.bg};color:${rb.color};">${u.role}</span>
+      </div>
+      <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+        <div class="flex items-center gap-1.5">
+          <div class="w-2 h-2 rounded-full ${u.is_active ? 'bg-green-500' : 'bg-slate-300'}"></div>
+          <span class="text-xs text-slate-500">${u.is_active ? 'Active' : 'Disabled'}</span>
+        </div>
+        <button onclick="openSetPasswordModal(${u.id}, '${escHtml(u.username)}')"
+          class="text-xs font-semibold px-2.5 py-1 rounded-lg border border-slate-200 text-slate-600 hover:border-slate-400 hover:bg-slate-50 transition cursor-pointer flex items-center gap-1">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+          </svg>
+          Set Password
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openStaffModal() { document.getElementById('staffModal').classList.remove('hidden'); }
+function closeStaffModal() {
+  document.getElementById('staffModal').classList.add('hidden');
+  document.getElementById('staffModalError').classList.add('hidden');
+  ['sfUsername','sfEmail','sfPassword'].forEach(id => document.getElementById(id).value = '');
+}
+
+async function saveStaff() {
+  const username = document.getElementById('sfUsername').value.trim();
+  const email    = document.getElementById('sfEmail').value.trim();
+  const password = document.getElementById('sfPassword').value;
+  const role     = document.getElementById('sfRole').value;
+  const errEl    = document.getElementById('staffModalError');
+  errEl.classList.add('hidden');
+
+  if (!username || !email || !password) {
+    errEl.textContent = 'All fields are required.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  const res = await fetch(`${API}/api/auth/register`, {
+    method: 'POST', headers: hdr,
+    body: JSON.stringify({ username, email, password, role })
+  });
+  const data = await res.json();
+  if (!res.ok) { errEl.textContent = data.detail||'Failed'; errEl.classList.remove('hidden'); return; }
+  closeStaffModal();
+  loadStaff();
+  showToast('Staff account created', 'green');
+}
+
+// ── SET PASSWORD (admin → any staff) ─────────────────────────────────────────
+let _spUserId = null;
+
+function openSetPasswordModal(userId, username) {
+  _spUserId = userId;
+  document.getElementById('setPasswordSubtitle').textContent = `Account: ${username}`;
+  document.getElementById('spNewPassword').value     = '';
+  document.getElementById('spConfirmPassword').value = '';
+  document.getElementById('setPasswordError').classList.add('hidden');
+  document.getElementById('spStrengthBar').style.width = '0%';
+  document.getElementById('spStrengthLabel').textContent = '';
+  document.getElementById('setPasswordModal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('spNewPassword').focus(), 100);
+}
+
+function closeSetPasswordModal() {
+  document.getElementById('setPasswordModal').classList.add('hidden');
+  _spUserId = null;
+}
+
+function togglePwVisibility(inputId, btn) {
+  const input = document.getElementById(inputId);
+  input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+function checkPasswordStrength(pw) {
+  const bar   = document.getElementById('spStrengthBar');
+  const label = document.getElementById('spStrengthLabel');
+  let score = 0;
+  if (pw.length >= 8)  score++;
+  if (pw.length >= 12) score++;
+  if (/[A-Z]/.test(pw)) score++;
+  if (/[0-9]/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  const levels = [
+    { pct: '20%', color: '#ef4444', text: 'Very weak' },
+    { pct: '40%', color: '#f97316', text: 'Weak' },
+    { pct: '60%', color: '#eab308', text: 'Fair' },
+    { pct: '80%', color: '#22c55e', text: 'Strong' },
+    { pct: '100%',color: '#16a34a', text: 'Very strong' },
+  ];
+  const lvl = levels[Math.max(0, score - 1)] || levels[0];
+  bar.style.width      = pw.length ? lvl.pct : '0%';
+  bar.style.background = lvl.color;
+  label.textContent    = pw.length ? lvl.text : '';
+  label.style.color    = lvl.color;
+}
+
+async function saveSetPassword() {
+  const newPw    = document.getElementById('spNewPassword').value;
+  const confirm  = document.getElementById('spConfirmPassword').value;
+  const errEl    = document.getElementById('setPasswordError');
+  const btn      = document.getElementById('spSaveBtn');
+  errEl.classList.add('hidden');
+
+  if (newPw.length < 8) {
+    errEl.textContent = 'Password must be at least 8 characters.';
+    errEl.classList.remove('hidden'); return;
+  }
+  if (newPw !== confirm) {
+    errEl.textContent = 'Passwords do not match.';
+    errEl.classList.remove('hidden'); return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Saving…';
+
+  const res  = await fetch(`${API}/api/auth/users/${_spUserId}/set-password`, {
+    method: 'PATCH', headers: hdr,
+    body: JSON.stringify({ new_password: newPw }),
+  });
+  const data = await res.json();
+
+  btn.disabled = false;
+  btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Save New Password';
+
+  if (res.ok) {
+    closeSetPasswordModal();
+    showToast(data.detail || 'Password updated', 'green');
+  } else {
+    errEl.textContent = data.detail || 'Failed to update password.';
+    errEl.classList.remove('hidden');
+  }
+}
+
+// ── SECURITY / AUDIT ─────────────────────────────────────────────────────────
+function loadSecurity() { loadSuspicious(false); loadAuditLogs(); }
+
+async function loadSuspicious(resolved = false) {
+  // Update button styles
+  document.getElementById('suspUnresolvedBtn').style.cssText = !resolved
+    ? 'background:#fee2e2;color:#991b1b;' : 'background:#f1f5f9;color:#64748b;';
+  document.getElementById('suspResolvedBtn').style.cssText = resolved
+    ? 'background:#dcfce7;color:#166534;' : 'background:#f1f5f9;color:#64748b;';
+
+  const res = await fetch(`${API}/api/admin/suspicious?resolved=${resolved}&limit=50`, { headers: hdr });
+  const el  = document.getElementById('suspiciousList');
+  if (!res.ok) { el.innerHTML = '<p class="text-xs text-red-400 text-center py-6">Failed to load</p>'; return; }
+  const flags = await res.json();
+  if (!flags.length) {
+    el.innerHTML = `<p class="text-sm text-slate-400 text-center py-8">${resolved ? 'No resolved flags' : 'No unresolved flags — all clear!'}</p>`;
+    return;
+  }
+  const typeColors = {
+    DUPLICATE_SCAN:      { bg:'#fef2f2', color:'#dc2626' },
+    INVALID_TOKEN_FLOOD: { bg:'#fef9c3', color:'#854d0e' },
+    BRUTE_FORCE:         { bg:'#fef2f2', color:'#991b1b' },
+    RAPID_ATTEMPTS:      { bg:'#fff7ed', color:'#c2410c' },
+  };
+  el.innerHTML = flags.map(f => {
+    const tc = typeColors[f.type] || { bg:'#f1f5f9', color:'#475569' };
+    return `
+    <div class="flex items-center justify-between gap-4 px-5 py-3.5 table-row">
+      <div class="flex items-center gap-3 min-w-0">
+        <span class="badge flex-shrink-0" style="background:${tc.bg};color:${tc.color};">${f.type}</span>
+        <div class="min-w-0">
+          <p class="text-sm text-slate-700 truncate">${escHtml(f.description||'')}</p>
+          <p class="text-xs text-slate-400 mt-0.5">${f.actor_name ? escHtml(f.actor_name)+' · ' : ''}${escHtml(f.ip_address||'')} · ${new Date(f.created_at).toLocaleString()}</p>
+        </div>
+      </div>
+      ${!f.resolved ? `<button onclick="resolveFlag(${f.id},this)" class="text-xs px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium transition cursor-pointer flex-shrink-0">Resolve</button>` : '<span class="text-xs text-green-600 font-semibold flex-shrink-0">Resolved</span>'}
+    </div>`;
+  }).join('');
+}
+
+async function resolveFlag(id, btn) {
+  btn.disabled = true; btn.textContent = '…';
+  const res = await fetch(`${API}/api/admin/suspicious/${id}/resolve`, { method:'POST', headers:hdr });
+  if (res.ok) { showToast('Flag resolved', 'green'); loadSuspicious(false); }
+  else { btn.disabled = false; btn.textContent = 'Resolve'; showToast('Failed', 'red'); }
+}
+
+async function loadAuditLogs() {
+  const orderId = document.getElementById('auditOrderFilter')?.value?.trim();
+  let url = `${API}/api/admin/audit?limit=100`;
+  if (orderId) url += `&order_id=${orderId}`;
+  const res = await fetch(url, { headers: hdr });
+  const tbody = document.getElementById('auditTable');
+  if (!res.ok) { tbody.innerHTML = '<tr><td colspan="6" class="text-center py-6 text-red-400 text-sm">Failed to load</td></tr>'; return; }
+  const logs = await res.json();
+  if (!logs.length) { tbody.innerHTML = '<tr><td colspan="6" class="text-center py-6 text-slate-400 text-sm">No audit entries found</td></tr>'; return; }
+
+  const eventColors = {
+    REDEEM_SUCCESS:      '#16A34A',
+    REDEEM_ALREADY_USED: '#dc2626',
+    REDEEM_INVALID:      '#ea580c',
+    REDEEM_NOT_READY:    '#ca8a04',
+    REDEEM_RESET:        '#7c3aed',
+    ORDER_CREATED:       '#2563eb',
+    CASH_MARKED_PAID:    '#059669',
+    ORDER_CANCELLED:     '#9f1239',
+    STATUS_CHANGED:      '#475569',
+    RATE_LIMITED:        '#ea580c',
+    SUSPICIOUS_SCAN:     '#dc2626',
+  };
+
+  tbody.innerHTML = logs.map(l => {
+    const color = eventColors[l.event] || '#64748b';
+    return `
+    <tr class="table-row">
+      <td class="px-4 py-3"><span class="text-xs font-bold" style="color:${color};">${l.event}</span></td>
+      <td class="px-4 py-3 font-mono text-xs text-slate-600">${l.order_number || '—'}</td>
+      <td class="px-4 py-3 text-xs text-slate-600">${l.actor_name ? escHtml(l.actor_name) + (l.actor_role ? ` <span class="text-slate-400">(${l.actor_role})</span>` : '') : '—'}</td>
+      <td class="px-4 py-3 text-xs text-slate-400">${escHtml(l.ip_address||'—')}${l.terminal_id ? '<br><span class="text-slate-300">'+escHtml(l.terminal_id)+'</span>' : ''}</td>
+      <td class="px-4 py-3 text-xs text-slate-500 max-w-[200px] truncate" title="${escHtml(l.note||'')}">${escHtml(l.note||'—')}</td>
+      <td class="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">${new Date(l.created_at).toLocaleString()}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── CONFIRM DIALOG ────────────────────────────────────────────────────────────
+function openConfirm(title, message, cb) {
+  document.getElementById('confirmTitle').textContent   = title;
+  document.getElementById('confirmMessage').textContent = message;
+  confirmCallback = cb;
+  document.getElementById('confirmDialog').classList.remove('hidden');
+}
+function closeConfirm() {
+  document.getElementById('confirmDialog').classList.add('hidden');
+  confirmCallback = null;
+}
+document.getElementById('confirmOkBtn').onclick = async () => {
+  const cb = confirmCallback;
+  closeConfirm();
+  if (cb) await cb();
+};
+
+// ── TOAST ─────────────────────────────────────────────────────────────────────
+function showToast(msg, type = 'green') {
+  const t = document.getElementById('toast');
+  const styles = {
+    green:  { bg:'#16A34A', icon:'M5 13l4 4L19 7' },
+    red:    { bg:'#DC2626', icon:'M6 18L18 6M6 6l12 12' },
+    yellow: { bg:'#CA8A04', icon:'M12 9v2m0 4h.01' },
+    blue:   { bg:'#1d4ed8', icon:'M13 16h-1v-4h-1m1-4h.01' },
+  };
+  const s = styles[type] || styles.green;
+  t.style.background = s.bg;
+  t.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+      <path stroke-linecap="round" stroke-linejoin="round" d="${s.icon}"/>
+    </svg>
+    <span>${escHtml(msg)}</span>`;
+  t.classList.remove('hidden');
+  t.style.animation = 'none';
+  requestAnimationFrame(() => { t.style.animation = ''; });
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.add('hidden'), 3000);
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function logout() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  window.location.href = '/frontend/login.html';
+}
+
+// ── REVIEWS MANAGEMENT ───────────────────────────────────────────────────────
+let allAdminReviews = [];
+let reviewFilterMode = 'all';
+
+async function loadAdminReviews() {
+  const tbody = document.getElementById('reviewsTable');
+  tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-slate-400 text-sm">Loading…</td></tr>';
+
+  // Load summary
+  try {
+    const sumRes = await fetch(`${API}/api/reviews/summary`);
+    if (sumRes.ok) {
+      const s = await sumRes.json();
+      if (s.count > 0) {
+        const badge = document.getElementById('reviewSummaryBadge');
+        badge.classList.remove('hidden');
+        badge.classList.add('flex');
+        const stars = '★'.repeat(Math.round(s.average)) + '☆'.repeat(5 - Math.round(s.average));
+        badge.innerHTML = `<span style="color:#D4A017;">${stars}</span> <strong>${s.average}</strong> avg · ${s.count} reviews`;
+      }
+    }
+  } catch(e) {}
+
+  // Load all reviews — admin endpoint returns both approved and hidden
+  try {
+    const res = await fetch(`${API}/api/admin/reviews?limit=200`, { headers: hdr });
+    if (!res.ok) { tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-red-400 text-sm">Failed to load reviews</td></tr>'; return; }
+    allAdminReviews = await res.json();
+    renderAdminReviews();
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-slate-400 text-sm">Error loading reviews</td></tr>';
+  }
+}
+
+function filterAdminReviews(mode) {
+  reviewFilterMode = mode;
+  ['all','approved','hidden'].forEach(m => {
+    const btn = document.getElementById(`rFilter${m.charAt(0).toUpperCase()+m.slice(1)}`);
+    if (btn) {
+      if (m === mode) { btn.style.background='#0f172a'; btn.style.color='white'; }
+      else { btn.style.background='#f1f5f9'; btn.style.color='#475569'; }
+    }
+  });
+  renderAdminReviews();
+}
+
+function renderAdminReviews() {
+  const tbody = document.getElementById('reviewsTable');
+  let filtered = allAdminReviews;
+  if (reviewFilterMode === 'approved') filtered = filtered.filter(r => r.is_approved !== false);
+  else if (reviewFilterMode === 'hidden') filtered = filtered.filter(r => r.is_approved === false);
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-10 text-slate-400 text-sm">No reviews yet</td></tr>';
+    return;
+  }
+  tbody.innerHTML = filtered.map(r => {
+    const stars = Array.from({length:5}, (_,i) =>
+      `<svg class="w-3.5 h-3.5 inline-block" viewBox="0 0 20 20" fill="${i < r.rating ? '#D4A017' : '#e2e8f0'}"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>`
+    ).join('');
+    const date = r.created_at ? new Date(r.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+    const statusBadge = r.is_approved !== false
+      ? '<span class="badge" style="background:#dcfce7;color:#166534;">Approved</span>'
+      : '<span class="badge" style="background:#fee2e2;color:#991b1b;">Hidden</span>';
+    const comment = r.comment ? `<span class="line-clamp-2 text-slate-600 max-w-[220px] block text-xs leading-relaxed">${r.comment.replace(/</g,'&lt;')}</span>` : '<span class="text-slate-300 text-xs italic">No comment</span>';
+    const hasReply = r.admin_reply && r.admin_reply.trim();
+    const replyPreview = hasReply
+      ? `<span class="text-xs text-slate-500 italic line-clamp-1">${r.admin_reply.replace(/</g,'&lt;').substring(0,60)}${r.admin_reply.length>60?'…':''}</span>`
+      : `<span class="text-xs text-slate-300">No reply yet</span>`;
+
+    return `<tr class="table-row" id="reviewRow-${r.id}">
+      <td class="px-4 py-3 font-medium text-slate-900 text-sm">${r.reviewer_name.replace(/</g,'&lt;')}</td>
+      <td class="px-4 py-3 whitespace-nowrap">${stars}</td>
+      <td class="px-4 py-3">${comment}</td>
+      <td class="px-4 py-3 hidden lg:table-cell">${replyPreview}</td>
+      <td class="px-4 py-3 text-slate-500 text-xs hidden md:table-cell">${r.order_number || '—'}</td>
+      <td class="px-4 py-3">${statusBadge}</td>
+      <td class="px-4 py-3 text-slate-400 text-xs hidden sm:table-cell whitespace-nowrap">${date}</td>
+      <td class="px-4 py-3 text-right">
+        <div class="flex items-center justify-end gap-1.5">
+          <button onclick="toggleReplyRow(${r.id})"
+            class="text-xs px-2.5 py-1 rounded-lg transition font-medium cursor-pointer ${hasReply ? 'text-blue-700 hover:bg-blue-50 border border-blue-200' : 'text-slate-600 hover:bg-slate-50 border border-slate-200'}">
+            ${hasReply ? 'Edit Reply' : 'Reply'}
+          </button>
+          <button onclick="toggleReviewApproval(${r.id}, ${!r.is_approved}, this)"
+            class="text-xs px-2.5 py-1 rounded-lg transition font-medium cursor-pointer ${r.is_approved !== false ? 'text-amber-700 hover:bg-amber-50 border border-amber-200' : 'text-green-700 hover:bg-green-50 border border-green-200'}">
+            ${r.is_approved !== false ? 'Hide' : 'Show'}
+          </button>
+          <button onclick="deleteReview(${r.id}, this)" class="text-xs px-2.5 py-1 rounded-lg text-red-600 hover:bg-red-50 border border-red-200 hover:border-red-300 transition font-medium cursor-pointer">
+            Delete
+          </button>
+        </div>
+      </td>
+    </tr>
+    <tr id="replyRow-${r.id}" class="hidden" style="background:#f8fafc;">
+      <td colspan="8" class="px-4 py-3">
+        <div class="flex items-start gap-3">
+          <div class="flex-1">
+            <label class="block text-xs font-semibold text-slate-500 mb-1.5">Your reply (shown publicly below the review)</label>
+            <textarea id="replyText-${r.id}" rows="2" placeholder="Thank you for your feedback…"
+              class="form-input text-sm resize-none w-full" style="height:auto;">${(r.admin_reply || '').replace(/</g,'&lt;')}</textarea>
+          </div>
+          <div class="flex flex-col gap-1.5 mt-5">
+            <button onclick="saveReply(${r.id})" class="text-xs px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer" style="background:#0f172a;color:white;" onmouseover="this.style.background='#1e293b'" onmouseout="this.style.background='#0f172a'">
+              Save
+            </button>
+            <button onclick="clearReply(${r.id})" class="text-xs px-3 py-1.5 rounded-lg font-medium text-slate-500 bg-slate-100 hover:bg-slate-200 transition cursor-pointer">
+              Clear
+            </button>
+            <button onclick="toggleReplyRow(${r.id})" class="text-xs px-3 py-1.5 rounded-lg font-medium text-slate-400 hover:text-slate-600 transition cursor-pointer">
+              Cancel
+            </button>
+          </div>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function toggleReplyRow(id) {
+  const row = document.getElementById(`replyRow-${id}`);
+  if (row) row.classList.toggle('hidden');
+}
+
+async function saveReply(id) {
+  const text = document.getElementById(`replyText-${id}`)?.value.trim() ?? '';
+  try {
+    const res = await fetch(`${API}/api/admin/reviews/${id}/reply`, {
+      method: 'PATCH', headers: hdr,
+      body: JSON.stringify({ reply: text }),
+    });
+    if (res.ok) {
+      // Update in-memory and re-render
+      const idx = allAdminReviews.findIndex(r => r.id === id);
+      if (idx !== -1) { allAdminReviews[idx].admin_reply = text || null; }
+      renderAdminReviews();
+      // Keep the reply row open on the newly rendered row so user sees the result
+      showToast(text ? 'Reply saved' : 'Reply cleared');
+    } else { showToast('Failed to save reply', true); }
+  } catch(e) { showToast('Network error', true); }
+}
+
+async function clearReply(id) {
+  document.getElementById(`replyText-${id}`).value = '';
+  await saveReply(id);
+}
+
+async function toggleReviewApproval(id, newApproved, btn) {
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const res = await fetch(`${API}/api/admin/reviews/${id}/approval`, {
+      method: 'PATCH', headers: hdr,
+      body: JSON.stringify({ is_approved: newApproved }),
+    });
+    if (res.ok) {
+      const idx = allAdminReviews.findIndex(r => r.id === id);
+      if (idx !== -1) allAdminReviews[idx].is_approved = newApproved;
+      renderAdminReviews();
+      showToast(newApproved ? 'Review approved' : 'Review hidden');
+    } else {
+      btn.disabled = false; btn.textContent = newApproved ? 'Show' : 'Hide';
+    }
+  } catch(e) { btn.disabled = false; btn.textContent = newApproved ? 'Show' : 'Hide'; }
+}
+
+async function deleteReview(id, btn) {
+  if (!confirm('Delete this review permanently?')) return;
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const res = await fetch(`${API}/api/admin/reviews/${id}`, { method: 'DELETE', headers: hdr });
+    if (res.ok || res.status === 404) {
+      allAdminReviews = allAdminReviews.filter(r => r.id !== id);
+      renderAdminReviews();
+      showToast('Review deleted');
+    } else {
+      btn.disabled = false; btn.textContent = 'Delete';
+      showToast('Failed to delete review', true);
+    }
+  } catch(e) { btn.disabled = false; btn.textContent = 'Delete'; }
+}
+
+// ── LOYALTY ADMIN ────────────────────────────────────────────────────────────
+async function loadAdminLoyalty() {
+  await Promise.all([ loadAdminMembers(), loadAdminRewards(), loadAdminClaims() ]);
+}
+
+async function loadAdminMembers() {
+  document.getElementById('loyaltyTable').innerHTML =
+    '<tr><td colspan="7" class="text-center py-8 text-slate-400 text-sm">Loading…</td></tr>';
+  document.getElementById('loyaltySummaryCards').innerHTML = '';
+  try {
+    const res = await fetch(`${API}/api/admin/loyalty/accounts`, { headers: hdr });
+    if (!res.ok) { throw new Error(); }
+    const accounts = await res.json();
+    const totalBalance  = accounts.reduce((s,a) => s + a.points_balance, 0);
+    const totalEarned   = accounts.reduce((s,a) => s + a.total_earned,   0);
+    const totalRedeemed = accounts.reduce((s,a) => s + a.total_redeemed, 0);
+    const summaryCards = [
+      { label:'Total Members',         value: accounts.length,              bg:'#0f172a' },
+      { label:'Points in Circulation', value: totalBalance.toLocaleString(), bg:'#D4A017' },
+      { label:'Total Points Earned',   value: totalEarned.toLocaleString(),  bg:'#16A34A' },
+      { label:'Total Points Redeemed', value: totalRedeemed.toLocaleString(),bg:'#7c3aed' },
+    ];
+    document.getElementById('loyaltySummaryCards').innerHTML = summaryCards.map(c => `
+      <div class="stat-card">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center mb-3" style="background:${c.bg};">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+        <p class="text-2xl font-bold text-slate-900">${c.value}</p>
+        <p class="text-xs text-slate-400 mt-0.5 font-medium">${c.label}</p>
+      </div>
+    `).join('');
+
+    const sorted = [...accounts].sort((a,b) => b.points_balance - a.points_balance).slice(0,50);
+    document.getElementById('loyaltyTable').innerHTML = sorted.length ? sorted.map((a, i) => {
+      const joined     = a.created_at ? new Date(a.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+      const rankLabel  = i < 3 ? ['#1','#2','#3'][i] : `${i+1}`;
+      const identifier = a.email || a.phone || '—';
+      return `<tr class="table-row">
+        <td class="px-4 py-3 font-bold text-slate-500 text-sm w-8">${rankLabel}</td>
+        <td class="px-4 py-3 font-medium text-slate-900 text-sm font-mono">${escHtml(identifier)}</td>
+        <td class="px-4 py-3 text-slate-600 text-sm hidden sm:table-cell">${escHtml(a.display_name || '')||'<span class="text-slate-300 italic">—</span>'}</td>
+        <td class="px-4 py-3">
+          <span class="font-bold text-amber-700 text-sm">${a.points_balance.toLocaleString()} pts</span>
+        </td>
+        <td class="px-4 py-3 text-slate-600 text-sm hidden md:table-cell">${a.total_earned.toLocaleString()}</td>
+        <td class="px-4 py-3 text-slate-600 text-sm hidden md:table-cell">${a.total_redeemed.toLocaleString()}</td>
+        <td class="px-4 py-3 text-slate-400 text-xs hidden lg:table-cell whitespace-nowrap">${joined}</td>
+      </tr>`;
+    }).join('') :
+    '<tr><td colspan="7" class="text-center py-10 text-slate-400 text-sm">No loyalty members yet</td></tr>';
+  } catch(e) {
+    document.getElementById('loyaltyTable').innerHTML =
+      '<tr><td colspan="7" class="text-center py-8 text-slate-400 text-sm">Error loading loyalty data</td></tr>';
+  }
+}
+
+// ── REWARD CATALOG ────────────────────────────────────────────────────────────
+async function loadAdminRewards() {
+  document.getElementById('rewardCatalogTable').innerHTML =
+    '<tr><td colspan="7" class="text-center py-8 text-slate-400 text-sm">Loading…</td></tr>';
+  try {
+    const res   = await fetch(`${API}/api/admin/rewards`, { headers: hdr });
+    const items = await res.json();
+    adminRewards = res.ok ? items : [];
+    if (!res.ok || !items.length) {
+      document.getElementById('rewardCatalogTable').innerHTML =
+        '<tr><td colspan="7" class="text-center py-10 text-slate-400 text-sm">No rewards in catalog. Add your first reward!</td></tr>';
+      return;
+    }
+    document.getElementById('rewardCatalogTable').innerHTML = items.map(r => {
+      const validUntil = r.valid_until ? new Date(r.valid_until).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+      return `<tr class="table-row">
+        <td class="px-4 py-3.5">
+          <p class="font-semibold text-slate-900 text-sm">${escHtml(r.name)}</p>
+          ${r.description ? `<p class="text-xs text-slate-400 mt-0.5 hidden sm:block">${escHtml(r.description)}</p>` : ''}
+        </td>
+        <td class="px-4 py-3.5">
+          <span class="font-bold text-amber-700 text-sm">${r.points_required} pts</span>
+        </td>
+        <td class="px-4 py-3.5 hidden sm:table-cell">
+          <span class="badge ${r.is_active ? 'text-green-700' : 'text-slate-500'}" style="background:${r.is_active ? '#dcfce7' : '#f1f5f9'};">
+            ${r.is_active ? 'Active' : 'Inactive'}
+          </span>
+        </td>
+        <td class="px-4 py-3.5 text-slate-600 text-sm hidden md:table-cell">
+          ${r.quantity_limit != null ? `${r.quantity_limit}` : '<span class="text-slate-300">Unlimited</span>'}
+        </td>
+        <td class="px-4 py-3.5 text-slate-600 text-sm hidden md:table-cell">${r.quantity_claimed}</td>
+        <td class="px-4 py-3.5 text-slate-400 text-xs hidden lg:table-cell">${validUntil}</td>
+        <td class="px-4 py-3.5">
+          <div class="flex items-center gap-2">
+            <button onclick="openRewardModal(${r.id})" class="text-xs font-semibold text-slate-600 hover:text-slate-900 px-2.5 py-1.5 rounded-lg border border-slate-200 hover:border-slate-400 transition cursor-pointer">Edit</button>
+            <button onclick="deleteAdminReward(${r.id}, this)" class="text-xs font-semibold text-red-400 hover:text-red-600 px-2.5 py-1.5 rounded-lg border border-red-100 hover:border-red-300 transition cursor-pointer">Delete</button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    document.getElementById('rewardCatalogTable').innerHTML =
+      '<tr><td colspan="7" class="text-center py-8 text-slate-400 text-sm">Error loading rewards</td></tr>';
+  }
+}
+
+function openRewardModal(id) {
+  document.getElementById('rewardItemId').value   = id || '';
+  document.getElementById('rewardModalTitle').textContent = id ? 'Edit Reward Item' : 'Add Reward Item';
+  document.getElementById('rewardModalError').classList.add('hidden');
+  if (!id) {
+    // Clear form for new item
+    ['rwName','rwDescription','rwImageUrl','rwValidUntil'].forEach(f => document.getElementById(f).value = '');
+    document.getElementById('rwPoints').value     = '';
+    document.getElementById('rwSortOrder').value  = '0';
+    document.getElementById('rwQtyLimit').value   = '';
+    document.getElementById('rwIsActive').checked = true;
+    document.getElementById('rewardModal').classList.remove('hidden');
+    return;
+  }
+  // Use cached rewards list — no extra network request needed
+  const r = adminRewards.find(x => x.id === id);
+  if (r) {
+    document.getElementById('rwName').value        = r.name || '';
+    document.getElementById('rwDescription').value = r.description || '';
+    document.getElementById('rwPoints').value      = r.points_required;
+    document.getElementById('rwSortOrder').value   = r.sort_order || 0;
+    document.getElementById('rwQtyLimit').value    = r.quantity_limit != null ? r.quantity_limit : '';
+    document.getElementById('rwImageUrl').value    = r.image_url || '';
+    document.getElementById('rwIsActive').checked  = r.is_active;
+    document.getElementById('rwValidUntil').value  = r.valid_until ? r.valid_until.split('T')[0] : '';
+    document.getElementById('rewardModal').classList.remove('hidden');
+  } else {
+    showToast('Reward not found. Please refresh.', 'red');
+  }
+}
+
+function closeRewardModal() {
+  document.getElementById('rewardModal').classList.add('hidden');
+}
+
+async function saveReward() {
+  const id     = document.getElementById('rewardItemId').value;
+  const name   = document.getElementById('rwName').value.trim();
+  const pts    = parseInt(document.getElementById('rwPoints').value);
+  const errEl  = document.getElementById('rewardModalError');
+  errEl.classList.add('hidden');
+  if (!name)   { errEl.textContent = 'Reward name is required.'; errEl.classList.remove('hidden'); return; }
+  if (!pts||pts<1) { errEl.textContent = 'Points required must be at least 1.'; errEl.classList.remove('hidden'); return; }
+
+  const qtyRaw = document.getElementById('rwQtyLimit').value;
+  const body = {
+    name,
+    description:      document.getElementById('rwDescription').value.trim() || null,
+    points_required:  pts,
+    image_url:        document.getElementById('rwImageUrl').value.trim() || null,
+    is_active:        document.getElementById('rwIsActive').checked,
+    quantity_limit:   qtyRaw ? parseInt(qtyRaw) : null,
+    sort_order:       parseInt(document.getElementById('rwSortOrder').value)||0,
+    valid_until:      document.getElementById('rwValidUntil').value || null,
+  };
+
+  const btn = document.getElementById('rewardSaveBtn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const url    = id ? `${API}/api/admin/rewards/${id}` : `${API}/api/admin/rewards`;
+    const method = id ? 'PUT' : 'POST';
+    const res    = await fetch(url, { method, headers: hdr, body: JSON.stringify(body) });
+    const data   = await res.json();
+    if (!res.ok) { errEl.textContent = data.detail || 'Save failed'; errEl.classList.remove('hidden'); return; }
+    closeRewardModal();
+    loadAdminRewards();
+    showToast(id ? 'Reward updated!' : 'Reward added!', 'green');
+  } catch(e) {
+    errEl.textContent = 'Network error'; errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Save Reward';
+  }
+}
+
+async function deleteAdminReward(id, btn) {
+  if (!confirm('Delete this reward? If it has existing claims, it will be deactivated instead.')) return;
+  btn.disabled = true;
+  try {
+    const res = await fetch(`${API}/api/admin/rewards/${id}`, { method:'DELETE', headers: hdr });
+    if (res.ok) { loadAdminRewards(); showToast('Reward removed', 'green'); }
+    else { const d = await res.json(); showToast(d.detail||'Delete failed','red'); }
+  } catch(e) { showToast('Network error','red'); }
+  finally { btn.disabled = false; }
+}
+
+// ── CLAIMS MANAGEMENT ─────────────────────────────────────────────────────────
+async function loadAdminClaims() {
+  document.getElementById('rewardClaimsTable').innerHTML =
+    '<tr><td colspan="7" class="text-center py-8 text-slate-400 text-sm">Loading…</td></tr>';
+  try {
+    const res    = await fetch(`${API}/api/admin/rewards/claims`, { headers: hdr });
+    const claims = await res.json();
+    if (!res.ok || !claims.length) {
+      document.getElementById('rewardClaimsTable').innerHTML =
+        '<tr><td colspan="7" class="text-center py-10 text-slate-400 text-sm">No reward claims yet</td></tr>';
+      return;
+    }
+    document.getElementById('rewardClaimsTable').innerHTML = claims.map(c => {
+      const date = c.created_at ? new Date(c.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+      return `<tr class="table-row" id="claimRow-${c.id}">
+        <td class="px-4 py-3.5 font-mono font-bold text-sm" style="color:#D4A017;">${escHtml(c.claim_code)}</td>
+        <td class="px-4 py-3.5 text-slate-900 text-sm font-medium">${escHtml(c.reward_name)}</td>
+        <td class="px-4 py-3.5 text-slate-600 text-sm hidden sm:table-cell font-mono">${escHtml(c.identifier||'—')}</td>
+        <td class="px-4 py-3.5 text-slate-600 text-sm hidden md:table-cell">${c.points_spent} pts</td>
+        <td class="px-4 py-3.5 text-slate-400 text-xs hidden md:table-cell">${date}</td>
+        <td class="px-4 py-3.5">
+          <span class="badge ${c.is_fulfilled ? 'text-slate-500' : 'text-green-700'}" style="background:${c.is_fulfilled ? '#f1f5f9' : '#dcfce7'};">
+            ${c.is_fulfilled ? 'Fulfilled' : 'Pending'}
+          </span>
+        </td>
+        <td class="px-4 py-3.5">
+          ${!c.is_fulfilled
+            ? `<button onclick="fulfillClaim(${c.id},this)" class="text-xs font-semibold text-white px-3 py-1.5 rounded-lg transition cursor-pointer" style="background:#C8102E;">Mark Fulfilled</button>`
+            : `<span class="text-xs text-slate-300">${c.fulfilled_at ? new Date(c.fulfilled_at).toLocaleDateString() : 'Done'}</span>`
+          }
+        </td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    document.getElementById('rewardClaimsTable').innerHTML =
+      '<tr><td colspan="7" class="text-center py-8 text-slate-400 text-sm">Error loading claims</td></tr>';
+  }
+}
+
+async function fulfillClaim(id, btn) {
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const res = await fetch(`${API}/api/admin/rewards/claims/${id}/fulfill`, { method:'PATCH', headers: hdr });
+    if (res.ok) {
+      loadAdminClaims();
+      showToast('Claim marked as fulfilled', 'green');
+    } else {
+      const d = await res.json();
+      showToast(d.detail || 'Failed to update claim', 'red');
+      btn.disabled = false; btn.textContent = 'Mark Fulfilled';
+    }
+  } catch(e) {
+    showToast('Network error', 'red');
+    btn.disabled = false; btn.textContent = 'Mark Fulfilled';
+  }
+}
+
+init();
+
+// ── POS CONFIG ────────────────────────────────────────────────────────────────
+let posConfigItems = [];   // [{id, name, category, price, cashier_visible, is_available, cashier_note, sort_order}]
+let posConfigCatFilter = 'ALL';
+
+async function loadPosConfig() {
+  try {
+    const res  = await fetch(`${API}/api/admin/cashier-config`, { headers: hdr });
+    if (!res.ok) return;
+    posConfigItems = await res.json();
+    buildPosConfigCatBar();
+    renderPosConfig();
+  } catch (_) {}
+}
+
+function buildPosConfigCatBar() {
+  const cats = ['ALL', ...new Set(posConfigItems.map(i => i.category))];
+  const bar  = document.getElementById('posConfigCatBar');
+  bar.innerHTML = cats.map(c =>
+    `<button class="pos-cat-filter-btn ${c==='ALL'?'active':''} text-xs px-3 py-1.5 rounded-full border ${c==='ALL'?'border-slate-900 bg-slate-900 text-white':'border-slate-200 text-slate-600 hover:border-slate-400'} font-semibold"
+      onclick="filterPosConfig('${escHtml(c)}',this)">${escHtml(c)}</button>`
+  ).join('');
+}
+
+function filterPosConfig(cat, btn) {
+  posConfigCatFilter = cat;
+  document.querySelectorAll('.pos-cat-filter-btn').forEach(b => {
+    b.classList.remove('active','bg-slate-900','text-white','border-slate-900');
+    b.classList.add('text-slate-600','border-slate-200');
+  });
+  btn.classList.add('active','bg-slate-900','text-white','border-slate-900');
+  btn.classList.remove('text-slate-600','border-slate-200');
+  renderPosConfig();
+}
+
+function renderPosConfig() {
+  const items = posConfigCatFilter === 'ALL'
+    ? posConfigItems
+    : posConfigItems.filter(i => i.category === posConfigCatFilter);
+
+  const grid = document.getElementById('posConfigGrid');
+
+  if (!items.length) {
+    grid.innerHTML = '<div class="col-span-full text-center py-10 text-slate-400 text-sm">No items</div>';
+    return;
+  }
+
+  grid.innerHTML = items.map(item => {
+    const cardCls = !item.cashier_visible ? 'hidden-pos' : !item.is_available ? 'oos' : 'visible';
+    return `
+    <div class="pos-config-card ${cardCls}" id="pcc-${item.id}">
+      <div class="flex items-start justify-between gap-2 mb-2">
+        <div class="flex-1 min-w-0">
+          <p class="font-semibold text-slate-900 text-sm leading-tight">${escHtml(item.name)}</p>
+          <p class="text-xs text-slate-400 mt-0.5">${escHtml(item.category)}</p>
+        </div>
+        <button class="pos-toggle ${item.cashier_visible?'on':'off'}" title="${item.cashier_visible?'Visible on POS — click to hide':'Hidden on POS — click to show'}"
+          onclick="togglePosVisible(${item.id}, this)"></button>
+      </div>
+
+      <div class="flex items-center justify-between mb-3">
+        <span class="font-bold text-slate-700 text-sm">ETB ${item.price.toFixed(2)}</span>
+        <label class="flex items-center gap-1.5 cursor-pointer select-none">
+          <input type="checkbox" class="accent-amber-500 w-3.5 h-3.5" id="pcOos-${item.id}"
+            ${!item.is_available?'checked':''}
+            onchange="togglePosAvailability(${item.id}, this)"/>
+          <span class="text-xs text-slate-500">Out of stock</span>
+        </label>
+      </div>
+
+      <div>
+        <input type="text" id="pcNote-${item.id}" value="${escHtml(item.cashier_note||'')}"
+          placeholder="Cashier note (e.g. 'lamb only today')"
+          class="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white outline-none focus:border-slate-400 text-slate-700"
+          oninput="markPosItemDirty(${item.id})" />
+      </div>
+
+      <div class="mt-2 flex items-center gap-2">
+        <label class="text-xs text-slate-400 flex-shrink-0">Order</label>
+        <input type="number" id="pcSort-${item.id}" value="${item.sort_order}" min="0"
+          class="w-16 text-xs px-2 py-1 border border-slate-200 rounded-lg bg-white outline-none focus:border-slate-400 text-slate-700 mono"
+          oninput="markPosItemDirty(${item.id})" />
+        <span class="text-xs text-slate-300">(lower = first)</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+const _posConfigDirty = new Set();
+
+function markPosItemDirty(id) { _posConfigDirty.add(id); }
+
+function togglePosVisible(id, btn) {
+  const isOn = btn.classList.contains('on');
+  btn.classList.toggle('on',  !isOn);
+  btn.classList.toggle('off',  isOn);
+  const card = document.getElementById(`pcc-${id}`);
+  if (card) {
+    card.classList.remove('visible','hidden-pos','oos');
+    card.classList.add(!isOn ? 'visible' : 'hidden-pos');
+  }
+  const item = posConfigItems.find(i => i.id === id);
+  if (item) item.cashier_visible = !isOn;
+  _posConfigDirty.add(id);
+}
+
+function togglePosAvailability(id, checkbox) {
+  const item = posConfigItems.find(i => i.id === id);
+  if (item) item.is_available = !checkbox.checked;
+  const card = document.getElementById(`pcc-${id}`);
+  if (card) {
+    card.classList.remove('visible','hidden-pos','oos');
+    if (!item.cashier_visible) card.classList.add('hidden-pos');
+    else if (!item.is_available) card.classList.add('oos');
+    else card.classList.add('visible');
+  }
+  _posConfigDirty.add(id);
+}
+
+function posConfigEnableAll() {
+  posConfigItems.forEach(item => { item.cashier_visible = true; _posConfigDirty.add(item.id); });
+  renderPosConfig();
+}
+
+function posConfigDisableAll() {
+  posConfigItems.forEach(item => { item.cashier_visible = false; _posConfigDirty.add(item.id); });
+  renderPosConfig();
+}
+
+async function savePosConfig() {
+  if (!_posConfigDirty.size) { showToast('No changes to save', 'gray'); return; }
+
+  const updates = [..._posConfigDirty].map(id => {
+    const item = posConfigItems.find(i => i.id === id);
+    if (!item) return null;
+    const noteEl = document.getElementById(`pcNote-${id}`);
+    const sortEl = document.getElementById(`pcSort-${id}`);
+    return {
+      id,
+      cashier_visible: item.cashier_visible,
+      is_available:    item.is_available,
+      cashier_note:    noteEl ? noteEl.value.trim() : null,
+      sort_order:      sortEl ? parseInt(sortEl.value) || 0 : 0,
+    };
+  }).filter(Boolean);
+
+  const btn = document.getElementById('posConfigSaveBtn');
+  btn.disabled = true;
+  const origHTML = btn.innerHTML;
+  btn.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Saving…';
+
+  try {
+    const res  = await fetch(`${API}/api/admin/cashier-config/bulk`, {
+      method: 'POST', headers: hdr,
+      body: JSON.stringify({ updates }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      _posConfigDirty.clear();
+      showToast(`Saved — ${data.updated} item${data.updated !== 1 ? 's' : ''} updated`, 'green');
+      document.getElementById('posConfigSuccess').classList.remove('hidden');
+      setTimeout(() => document.getElementById('posConfigSuccess').classList.add('hidden'), 3000);
+    } else {
+      showToast(data.detail || 'Save failed', 'red');
+    }
+  } catch (_) {
+    showToast('Network error', 'red');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = origHTML;
+  }
+}
+
+// Hook POS config load into tab switching
+const _origSwitchTab = switchTab;
+switchTab = function(name) {
+  _origSwitchTab(name);
+  if (name === 'posconfig') loadPosConfig();
+};
+</script>
+</body>
+</html>

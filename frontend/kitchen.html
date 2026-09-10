@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Kitchen Dashboard — Taste of Ethiopia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@300;400;500;600;700&family=Noto+Sans+Ethiopic:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme:{ extend:{
+        fontFamily:{
+          sans: ['"DM Sans"','sans-serif'],
+          display: ['"Playfair Display"','serif'],
+        }
+      }}
+    }
+  </script>
+  <style>
+    * { font-family: 'DM Sans', sans-serif; }
+    .font-display { font-family: 'Playfair Display', serif; }
+    body.lang-am, body.lang-am * { font-family: 'Noto Sans Ethiopic', 'DM Sans', sans-serif; }
+    body.lang-am .font-mono { font-family: 'Noto Sans Ethiopic', monospace; }
+
+    @keyframes slideInCard {
+      from { opacity: 0; transform: translateY(12px) scale(0.98); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes urgentPulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+      50%     { box-shadow: 0 0 0 4px rgba(239,68,68,0.25); }
+    }
+    @keyframes scaleIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+
+    .order-card {
+      animation: slideInCard 0.35s cubic-bezier(0.16,1,0.3,1) both;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .order-card:hover { transform: translateY(-2px); }
+    .order-card.urgent { animation: urgentPulse 2s ease-in-out infinite, slideInCard 0.35s cubic-bezier(0.16,1,0.3,1) both; }
+
+    .glass-card {
+      background: rgba(20, 20, 20, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.07);
+    }
+
+    .btn { transition: all 0.15s ease; cursor: pointer; }
+    .btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+    .btn:active { transform: scale(0.97) translateY(0); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; filter: none; }
+
+    .filter-btn { transition: all 0.15s ease; cursor: pointer; }
+    .filter-btn.active { background: white; color: #0f172a; }
+
+    .status-PAID      { background: rgba(59,130,246,0.15); color: #93c5fd; border: 1px solid rgba(59,130,246,0.2); }
+    .status-PREPARING { background: rgba(245,158,11,0.15); color: #fcd34d; border: 1px solid rgba(245,158,11,0.2); }
+    .status-READY     { background: rgba(34,197,94,0.15);  color: #86efac; border: 1px solid rgba(34,197,94,0.2); }
+    .status-COMPLETED { background: rgba(100,116,139,0.12); color: #94a3b8; border: 1px solid rgba(100,116,139,0.15); }
+    .status-CASH_PENDING { background: rgba(251,191,36,0.15); color: #fcd34d; border: 1px solid rgba(251,191,36,0.2); }
+
+    .modal-bg { background: rgba(2,6,23,0.8); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+
+    /* ── Language toggle (dark) ── */
+    .lang-toggle {
+      display: flex;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 999px;
+      overflow: hidden;
+      font-size: .7rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .lang-toggle span {
+      padding: .3rem .65rem;
+      transition: background .15s, color .15s;
+      color: rgba(255,255,255,.4);
+      cursor: pointer;
+      user-select: none;
+    }
+    .lang-toggle span.active {
+      background: #C8102E;
+      color: #fff;
+      border-radius: 999px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, ::before, ::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body style="background:#0D0D0D; min-height:100vh;" class="text-white">
+
+<script>
+  (function(){
+    const token = localStorage.getItem('token');
+    const user  = JSON.parse(localStorage.getItem('user') || 'null');
+    if (!token || !user || !['kitchen','admin'].includes(user.role)) {
+      window.location.href = '/frontend/login.html';
+    }
+  })();
+</script>
+
+<!-- ── NAVBAR ──────────────────────────────────────────────────────────────── -->
+<nav style="background:rgba(13,13,13,0.95); border-bottom:1px solid rgba(255,255,255,0.06); backdrop-filter:blur(16px);">
+  <div class="px-4 sm:px-6 py-3.5 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:#C8102E; box-shadow:0 4px 16px rgba(200,16,46,0.35);">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0118 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+        </svg>
+      </div>
+      <div>
+        <h1 class="font-display text-base font-bold text-white leading-tight" data-i18n="nav.title">Kitchen Dashboard</h1>
+        <p class="text-xs font-medium" style="color:rgba(255,255,255,0.35);" data-i18n="nav.subtitle">Live Order Feed</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="hidden sm:flex items-center gap-2">
+        <span id="statPaid"      class="px-2.5 py-1 rounded-lg text-xs font-bold status-PAID">PAID: 0</span>
+        <span id="statPreparing" class="px-2.5 py-1 rounded-lg text-xs font-bold status-PREPARING">PREP: 0</span>
+        <span id="statReady"     class="px-2.5 py-1 rounded-lg text-xs font-bold status-READY">READY: 0</span>
+      </div>
+      <div class="flex items-center gap-1.5 text-xs font-medium" style="color:rgba(255,255,255,0.3);">
+        <div id="refreshDot" class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></div>
+        <span id="lastRefresh">Live</span>
+      </div>
+      <!-- Language toggle -->
+      <div class="lang-toggle" role="group" aria-label="Language selector">
+        <span id="langEN" class="active" onclick="setLanguage('en')">EN</span>
+        <span id="langAM" onclick="setLanguage('am')">አማ</span>
+      </div>
+      <button onclick="openChangePwModal()" class="btn text-xs px-3 py-1.5 rounded-lg font-medium" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.08); color:rgba(255,255,255,0.5);" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.5)'" title="Change Password">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+      </button>
+      <button onclick="logout()" class="btn text-xs px-3 py-1.5 rounded-lg font-medium" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.08); color:rgba(255,255,255,0.5);" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.5)'" data-i18n="nav.signout">
+        Sign Out
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- ── CHANGE OWN PASSWORD MODAL ──────────────────────────────────────────── -->
+<div id="changePwModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(2,6,23,0.85); backdrop-filter:blur(8px);">
+  <div class="w-full max-w-sm rounded-2xl p-6 shadow-2xl" style="background:#1a1a2e; border:1px solid rgba(255,255,255,0.1);">
+    <div class="flex items-center justify-between mb-5">
+      <div>
+        <h2 class="font-bold text-white">Change Password</h2>
+        <p id="changePwUser" class="text-xs mt-0.5" style="color:rgba(255,255,255,0.4);"></p>
+      </div>
+      <button onclick="closeChangePwModal()" class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-white cursor-pointer" style="background:rgba(255,255,255,0.06);">
+        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="space-y-3">
+      <div>
+        <label class="block text-xs font-semibold mb-1.5" style="color:rgba(255,255,255,0.5);">Current Password</label>
+        <input id="cpCurrent" type="password" placeholder="Your current password"
+          class="w-full px-3 py-2.5 rounded-xl text-sm text-white"
+          style="background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.1); outline:none;" />
+      </div>
+      <div>
+        <label class="block text-xs font-semibold mb-1.5" style="color:rgba(255,255,255,0.5);">New Password</label>
+        <input id="cpNew" type="password" placeholder="Min 8 characters"
+          class="w-full px-3 py-2.5 rounded-xl text-sm text-white"
+          style="background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.1); outline:none;" />
+      </div>
+      <div>
+        <label class="block text-xs font-semibold mb-1.5" style="color:rgba(255,255,255,0.5);">Confirm New Password</label>
+        <input id="cpConfirm" type="password" placeholder="Repeat new password"
+          class="w-full px-3 py-2.5 rounded-xl text-sm text-white"
+          style="background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.1); outline:none;" />
+      </div>
+      <p id="cpError" class="hidden text-xs text-red-400 bg-red-900/30 p-2 rounded-lg"></p>
+      <button onclick="submitChangePw()" id="cpSaveBtn"
+        class="btn w-full py-2.5 rounded-xl text-sm font-bold text-white mt-1"
+        style="background:#C8102E;">
+        Update Password
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── FILTER BAR ─────────────────────────────────────────────────────────── -->
+<div class="px-4 sm:px-6 py-2.5 flex gap-2 overflow-x-auto" style="background:rgba(13,13,13,0.85); border-bottom:1px solid rgba(255,255,255,0.05);">
+  <button onclick="setFilter('all',this)" data-filter="all"
+    class="filter-btn active whitespace-nowrap px-3.5 py-1.5 rounded-lg text-xs font-semibold" style="background:white; color:#0f172a;" data-i18n="filter.all">
+    All Active
+  </button>
+  <button onclick="setFilter('PAID',this)" data-filter="PAID"
+    class="filter-btn whitespace-nowrap px-3.5 py-1.5 rounded-lg text-xs font-medium" style="background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.5);" data-i18n="filter.new">
+    New (PAID)
+  </button>
+  <button onclick="setFilter('PREPARING',this)" data-filter="PREPARING"
+    class="filter-btn whitespace-nowrap px-3.5 py-1.5 rounded-lg text-xs font-medium" style="background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.5);" data-i18n="filter.preparing">
+    Preparing
+  </button>
+  <button onclick="setFilter('READY',this)" data-filter="READY"
+    class="filter-btn whitespace-nowrap px-3.5 py-1.5 rounded-lg text-xs font-medium" style="background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.5);" data-i18n="filter.ready">
+    Ready
+  </button>
+  <button onclick="setFilter('COMPLETED',this)" data-filter="COMPLETED"
+    class="filter-btn whitespace-nowrap px-3.5 py-1.5 rounded-lg text-xs font-medium" style="background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.5);" data-i18n="filter.completed">
+    Completed
+  </button>
+</div>
+
+<!-- ── ORDERS GRID ─────────────────────────────────────────────────────────── -->
+<div class="p-4 sm:p-6">
+  <div id="ordersGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
+  <div id="emptyState" class="hidden text-center py-24">
+    <div class="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style="background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.15);">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+      </svg>
+    </div>
+    <p class="font-semibold text-white mb-1" data-i18n="empty.title">All caught up!</p>
+    <p class="text-sm" style="color:rgba(255,255,255,0.3);" data-i18n="empty.sub">No active orders in this view.</p>
+  </div>
+  <div id="loadingState" class="text-center py-24">
+    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-3" style="border-color:rgba(255,255,255,0.3); border-bottom-color:white;"></div>
+    <p class="text-sm" style="color:rgba(255,255,255,0.3);" data-i18n="loading">Loading orders…</p>
+  </div>
+</div>
+
+<!-- ── DETAIL MODAL ─────────────────────────────────────────────────────────── -->
+<div id="detailModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-bg">
+  <div class="glass-card rounded-2xl w-full max-w-md overflow-hidden" style="animation: scaleIn 0.25s ease both;">
+    <div class="flex items-center justify-between px-5 py-4" style="border-bottom:1px solid rgba(255,255,255,0.06);">
+      <h2 class="font-bold text-base text-white" data-i18n="detail.modal_title">Order Details</h2>
+      <button onclick="closeDetail()" class="btn w-8 h-8 rounded-lg flex items-center justify-center text-xl leading-none" style="background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.5);" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.5)'">&times;</button>
+    </div>
+    <div id="detailContent" class="p-5"></div>
+  </div>
+</div>
+
+<script>
+const API   = window.location.origin;
+const TOKEN = localStorage.getItem('token');
+let currentFilter = 'all';
+let refreshInterval;
+let orders = [];
+
+const headers = { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
+
+// ── Translations ──────────────────────────────────────────────────────────────
+const TRANSLATIONS = {
+  en: {
+    'nav.title':         'Kitchen Dashboard',
+    'nav.subtitle':      'Live Order Feed',
+    'nav.signout':       'Sign Out',
+    'filter.all':        'All Active',
+    'filter.new':        'New (PAID)',
+    'filter.preparing':  'Preparing',
+    'filter.ready':      'Ready',
+    'filter.completed':  'Completed',
+    'empty.title':       'All caught up!',
+    'empty.sub':         'No active orders in this view.',
+    'loading':           'Loading orders…',
+    'detail.modal_title':'Order Details',
+    'order.total':       'Total',
+    'order.details':     'Details',
+    'order.ago':         'min ago',
+    'action.start_prep': 'Start Preparing',
+    'action.mark_ready': 'Mark Ready',
+    'action.complete':   'Complete',
+    'action.processing': '…',
+    'detail.order_no':   'Order #',
+    'detail.status':     'Status',
+    'detail.customer':   'Customer',
+    'detail.payment':    'Payment',
+    'detail.phone':      'Phone:',
+    'detail.placed':     'Placed:',
+    'status.urgent':     'URGENT',
+    'err.update_failed': 'Update failed',
+    'err.network':       'Network error',
+  },
+  am: {
+    'nav.title':         'የማብሻ ዳሽቦርድ',
+    'nav.subtitle':      'ቀጥታ ትዕዛዞች',
+    'nav.signout':       'ውጡ',
+    'filter.all':        'ሁሉም ንቁ',
+    'filter.new':        'አዲስ (ተከፍሏል)',
+    'filter.preparing':  'እየተዘጋጀ',
+    'filter.ready':      'ዝግጁ',
+    'filter.completed':  'ተጠናቋል',
+    'empty.title':       'ሁሉም ዝግጁ ነው!',
+    'empty.sub':         'ምንም ንቁ ትዕዛዝ የለም።',
+    'loading':           'ትዕዛዞች እየተጫኑ…',
+    'detail.modal_title':'የትዕዛዝ ዝርዝር',
+    'order.total':       'ጠቅላላ',
+    'order.details':     'ዝርዝር',
+    'order.ago':         'ደቂቃ በፊት',
+    'action.start_prep': 'ማዘጋጀት ጀምር',
+    'action.mark_ready': 'ዝግጁ ምልክት',
+    'action.complete':   'አጠናቅ',
+    'action.processing': '…',
+    'detail.order_no':   'ትዕዛዝ ቁ.',
+    'detail.status':     'ሁኔታ',
+    'detail.customer':   'ደንበኛ',
+    'detail.payment':    'ክፍያ',
+    'detail.phone':      'ስልክ:',
+    'detail.placed':     'የቀረበበት:',
+    'status.urgent':     'አስቸኳይ',
+    'err.update_failed': 'ዝማኔ አልተሳካም',
+    'err.network':       'የአውታረ መረብ ስህተት',
+  },
+};
+
+let currentLang = localStorage.getItem('lang') || 'en';
+
+function t(key) {
+  return (TRANSLATIONS[currentLang] || TRANSLATIONS.en)[key] ?? TRANSLATIONS.en[key] ?? key;
+}
+
+function applyTranslations() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    if (el.id === 'lastRefresh') return;  // managed dynamically
+    el.textContent = t(el.dataset.i18n);
+  });
+  document.documentElement.lang = currentLang === 'am' ? 'am' : 'en';
+  document.body.classList.toggle('lang-am', currentLang === 'am');
+  document.getElementById('langEN').classList.toggle('active', currentLang === 'en');
+  document.getElementById('langAM').classList.toggle('active', currentLang === 'am');
+}
+
+function setLanguage(lang) {
+  if (lang === currentLang) return;
+  currentLang = lang;
+  localStorage.setItem('lang', lang);
+  applyTranslations();
+  renderOrders(orders);  // re-render cards with new language
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function init() {
+  applyTranslations();
+  await loadOrders();
+  refreshInterval = setInterval(loadOrders, 15000);
+}
+
+async function loadOrders() {
+  try {
+    const url = currentFilter === 'all'
+      ? `${API}/api/kitchen/orders`
+      : `${API}/api/kitchen/orders?status=${currentFilter}`;
+    const [ordersRes, statsRes] = await Promise.all([
+      fetch(url, { headers }),
+      fetch(`${API}/api/kitchen/orders/stats`, { headers }),
+    ]);
+    if (ordersRes.status === 401) { logout(); return; }
+    orders = await ordersRes.json();
+    const stats = statsRes.ok ? await statsRes.json() : {};
+    updateStats(stats);
+    renderOrders(orders);
+    updateRefreshTime();
+  } catch (e) { console.error('Load error:', e); }
+}
+
+function updateStats(stats) {
+  document.getElementById('statPaid').textContent      = `PAID: ${stats.PAID || 0}`;
+  document.getElementById('statPreparing').textContent = `PREP: ${stats.PREPARING || 0}`;
+  document.getElementById('statReady').textContent     = `READY: ${stats.READY || 0}`;
+}
+
+function updateRefreshTime() {
+  const now = new Date();
+  document.getElementById('lastRefresh').textContent =
+    `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+}
+
+function renderOrders(list) {
+  const grid    = document.getElementById('ordersGrid');
+  const empty   = document.getElementById('emptyState');
+  const loading = document.getElementById('loadingState');
+  loading.classList.add('hidden');
+  grid.innerHTML = '';
+  if (!list.length) { empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+
+  list.forEach((order, idx) => {
+    const card  = document.createElement('div');
+    const age   = getAge(order.created_at);
+    const isUrgent = age > 20 && order.status !== 'COMPLETED';
+    card.className = `order-card glass-card rounded-2xl overflow-hidden ${isUrgent ? 'urgent' : ''}`;
+    card.style.animationDelay = Math.min(idx * 50, 300) + 'ms';
+    if (isUrgent) card.style.borderColor = 'rgba(239,68,68,0.4)';
+
+    const specialInstructions = order.items_snapshot
+      ?.filter(i => i.special_instructions)
+      .map(i => i.special_instructions).join('; ');
+
+    card.innerHTML = `
+      <div class="px-4 pt-4 pb-3 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="font-mono font-bold text-sm text-white">${order.order_number}</span>
+          ${isUrgent ? `<span class="text-xs font-semibold text-red-400 animate-pulse">${t('status.urgent')}</span>` : ''}
+        </div>
+        <span class="px-2 py-0.5 rounded-md text-xs font-semibold status-${order.status}">${order.status}</span>
+      </div>
+      <div class="px-4 pb-3" style="border-bottom:1px solid rgba(255,255,255,0.05);">
+        <p class="font-semibold text-sm text-white leading-snug">${escHtml(order.customer_name)}</p>
+        <p class="text-xs mt-0.5 font-medium" style="color:rgba(255,255,255,0.3);">${age} ${t('order.ago')} · ${order.payment_method}</p>
+      </div>
+      <div class="px-4 py-3 space-y-1">
+        ${order.items_snapshot.map(i => {
+          const removals = (i.removals || []).map(r => r.name).join(', ');
+          const custLine = (i.customizations || []).map(c => c.name).join(', ');
+          return `
+          <div class="flex justify-between text-xs">
+            <div>
+              <span style="color:rgba(255,255,255,0.6);">${escHtml(i.name)} <span style="color:rgba(255,255,255,0.25);">×${i.quantity}</span></span>
+              ${custLine ? `<p class="text-xs mt-0.5" style="color:rgba(212,160,23,0.8);">${escHtml(custLine)}</p>` : ''}
+              ${removals ? `<p class="text-xs mt-0.5" style="color:rgba(248,113,113,0.8);">No: ${escHtml(removals)}</p>` : ''}
+              ${i.special_instructions ? `<p class="text-xs italic mt-0.5" style="color:rgba(253,230,138,0.7);">"${escHtml(i.special_instructions)}"</p>` : ''}
+            </div>
+            <span style="color:rgba(255,255,255,0.5);">ETB ${i.subtotal.toFixed(2)}</span>
+          </div>`;
+        }).join('')}
+        <div class="flex justify-between text-sm font-bold text-white pt-1.5" style="border-top:1px solid rgba(255,255,255,0.05); margin-top:4px;">
+          <span>${t('order.total')}</span><span>ETB ${order.total_amount.toFixed(2)}</span>
+        </div>
+      </div>
+      ${order.notes ? `<div class="px-4 pb-3 text-xs font-medium" style="color:rgba(253,230,138,0.8); background:rgba(245,158,11,0.06);">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+        ${escHtml(order.notes)}</div>` : ''}
+      <div class="px-4 pb-4 flex gap-2 pt-1">
+        ${getActionButton(order)}
+        <button onclick="openDetail(${order.id})" class="btn flex-1 py-2 text-xs font-semibold rounded-xl" style="background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.5); border:1px solid rgba(255,255,255,0.06);">
+          ${t('order.details')}
+        </button>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function getActionButton(order) {
+  const map = {
+    PAID:         { key: 'action.start_prep', next: 'PREPARING', bg: 'rgba(59,130,246,0.15)',  border: 'rgba(59,130,246,0.25)',  color: '#93c5fd' },
+    CASH_PENDING: { key: 'action.start_prep', next: 'PREPARING', bg: 'rgba(59,130,246,0.15)',  border: 'rgba(59,130,246,0.25)',  color: '#93c5fd' },
+    PREPARING:    { key: 'action.mark_ready', next: 'READY',     bg: 'rgba(245,158,11,0.15)',  border: 'rgba(245,158,11,0.25)',  color: '#fcd34d' },
+    READY:        { key: 'action.complete',   next: 'COMPLETED', bg: 'rgba(34,197,94,0.15)',   border: 'rgba(34,197,94,0.25)',   color: '#86efac' },
+  };
+  const a = map[order.status];
+  if (!a) return '<div class="flex-1"></div>';
+  return `<button onclick="updateStatus(${order.id},'${a.next}',this)"
+    class="btn flex-1 py-2 text-xs font-semibold rounded-xl"
+    style="background:${a.bg}; border:1px solid ${a.border}; color:${a.color};">
+    ${t(a.key)}
+  </button>`;
+}
+
+async function updateStatus(orderId, newStatus, btn) {
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = t('action.processing');
+  try {
+    const res = await fetch(`${API}/api/kitchen/orders/${orderId}/status`, {
+      method: 'PATCH', headers, body: JSON.stringify({ status: newStatus }),
+    });
+    if (res.ok) { await loadOrders(); }
+    else { const d = await res.json(); alert(d.detail || t('err.update_failed')); btn.disabled = false; btn.textContent = original; }
+  } catch (e) { alert(t('err.network')); btn.disabled = false; btn.textContent = original; }
+}
+
+function setFilter(filter, btn) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    b.style.background = 'rgba(255,255,255,0.06)';
+    b.style.color = 'rgba(255,255,255,0.5)';
+    b.classList.remove('active');
+  });
+  btn.style.background = 'white';
+  btn.style.color = '#0f172a';
+  btn.classList.add('active');
+  loadOrders();
+}
+
+function openDetail(orderId) {
+  const order = orders.find(o => o.id === orderId);
+  if (!order) return;
+  document.getElementById('detailContent').innerHTML = `
+    <div class="space-y-3 text-sm">
+      <div class="grid grid-cols-2 gap-2">
+        <div class="rounded-xl p-3" style="background:rgba(255,255,255,0.04);">
+          <p class="text-xs mb-1" style="color:rgba(255,255,255,0.3);">${t('detail.order_no')}</p>
+          <p class="font-mono font-bold text-white">${order.order_number}</p>
+        </div>
+        <div class="rounded-xl p-3" style="background:rgba(255,255,255,0.04);">
+          <p class="text-xs mb-1" style="color:rgba(255,255,255,0.3);">${t('detail.status')}</p>
+          <p class="font-bold text-white">${order.status}</p>
+        </div>
+        <div class="rounded-xl p-3" style="background:rgba(255,255,255,0.04);">
+          <p class="text-xs mb-1" style="color:rgba(255,255,255,0.3);">${t('detail.customer')}</p>
+          <p class="font-semibold text-white">${escHtml(order.customer_name)}</p>
+        </div>
+        <div class="rounded-xl p-3" style="background:rgba(255,255,255,0.04);">
+          <p class="text-xs mb-1" style="color:rgba(255,255,255,0.3);">${t('detail.payment')}</p>
+          <p class="font-semibold text-white">${order.payment_method}</p>
+        </div>
+      </div>
+      ${order.customer_phone ? `<p class="text-xs" style="color:rgba(255,255,255,0.4);">${t('detail.phone')} ${escHtml(order.customer_phone)}</p>` : ''}
+      <div class="rounded-xl p-3 space-y-1.5" style="background:rgba(255,255,255,0.04);">
+        ${order.items_snapshot.map(i => {
+          const removals = (i.removals || []).map(r => r.name).join(', ');
+          const custLine = (i.customizations || []).map(c => c.name).join(', ');
+          return `
+          <div class="flex justify-between">
+            <div>
+              <span style="color:rgba(255,255,255,0.7);">${escHtml(i.name)} <span style="color:rgba(255,255,255,0.3);">×${i.quantity}</span></span>
+              ${custLine ? `<p class="text-xs" style="color:rgba(212,160,23,0.7);">${escHtml(custLine)}</p>` : ''}
+              ${removals ? `<p class="text-xs" style="color:rgba(248,113,113,0.8);">No: ${escHtml(removals)}</p>` : ''}
+              ${i.special_instructions ? `<p class="text-xs italic" style="color:rgba(253,230,138,0.7);">"${escHtml(i.special_instructions)}"</p>` : ''}
+            </div>
+            <span class="font-medium text-white">ETB ${i.subtotal.toFixed(2)}</span>
+          </div>`;
+        }).join('')}
+        <div class="pt-2 flex justify-between font-bold text-white" style="border-top:1px solid rgba(255,255,255,0.06);">
+          <span>${t('order.total')}</span><span>ETB ${order.total_amount.toFixed(2)}</span>
+        </div>
+      </div>
+      ${order.notes ? `<div class="rounded-xl p-3 text-xs font-medium" style="background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.15); color:rgba(253,230,138,0.9);">${escHtml(order.notes)}</div>` : ''}
+      <p class="text-xs" style="color:rgba(255,255,255,0.25);">${t('detail.placed')} ${new Date(order.created_at).toLocaleString()}</p>
+    </div>
+  `;
+  document.getElementById('detailModal').classList.remove('hidden');
+}
+function closeDetail() { document.getElementById('detailModal').classList.add('hidden'); }
+
+function getAge(createdAt) { return Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000); }
+
+/**
+ * Returns elapsed seconds since createdAt (for the per-card timer).
+ * Amber class at ≥5 min, red class at ≥10 min.
+ */
+function getElapsedSecs(createdAt) { return Math.floor((Date.now() - new Date(createdAt).getTime()) / 1000); }
+
+function formatTimer(secs) {
+  const m = Math.floor(secs / 60), s = secs % 60;
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+function escHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function logout() { localStorage.removeItem('token'); localStorage.removeItem('user'); clearInterval(refreshInterval); window.location.href = '/frontend/login.html'; }
+
+// ── Per-card elapsed timers ───────────────────────────────────────────────────
+let timerInterval = null;
+
+function startCardTimers() {
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    document.querySelectorAll('[data-created-at]').forEach(el => {
+      const secs = getElapsedSecs(el.dataset.createdAt);
+      el.textContent = formatTimer(secs);
+      // Colour escalation
+      el.classList.remove('text-green-400', 'text-amber-400', 'text-red-400');
+      if (secs >= 600)      el.classList.add('text-red-400');    // ≥ 10 min
+      else if (secs >= 300) el.classList.add('text-amber-400');  // ≥  5 min
+      else                  el.classList.add('text-green-400');
+    });
+  }, 1000);
+}
+
+// Patch renderOrders to add timer elements and kick off timers
+const _origRenderOrders = renderOrders;
+renderOrders = function(list) {
+  _origRenderOrders(list);
+
+  // After cards are rendered, inject timer elements
+  document.querySelectorAll('.order-card').forEach((card, idx) => {
+    const order = list[idx];
+    if (!order || order.status === 'COMPLETED') return;
+    // Find the age paragraph and append timer
+    const agePara = card.querySelector('p.text-xs.mt-0\\.5');
+    if (agePara && !card.querySelector('[data-created-at]')) {
+      const timerSpan = document.createElement('span');
+      timerSpan.dataset.createdAt = order.created_at;
+      timerSpan.className = 'font-mono font-bold ml-2 text-green-400';
+      timerSpan.textContent = formatTimer(getElapsedSecs(order.created_at));
+      agePara.appendChild(timerSpan);
+    }
+  });
+
+  startCardTimers();
+};
+
+// ── Web Audio alert ───────────────────────────────────────────────────────────
+let _audioCtx = null;
+let _prevOrderIds = new Set();
+
+function _ensureAudioCtx() {
+  if (!_audioCtx) {
+    try { _audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (_) {}
+  }
+  if (_audioCtx && _audioCtx.state === 'suspended') {
+    _audioCtx.resume().catch(() => {});
+  }
+}
+
+/**
+ * Play a two-tone "ding-dong" using Web Audio API.
+ * 880 Hz → 440 Hz, no external file needed.
+ */
+function playNewOrderAlert() {
+  _ensureAudioCtx();
+  if (!_audioCtx) return;
+  [[880, 0], [440, 0.18]].forEach(([freq, delay]) => {
+    const osc  = _audioCtx.createOscillator();
+    const gain = _audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(_audioCtx.destination);
+    osc.type      = 'sine';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0, _audioCtx.currentTime + delay);
+    gain.gain.linearRampToValueAtTime(0.35, _audioCtx.currentTime + delay + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, _audioCtx.currentTime + delay + 0.35);
+    osc.start(_audioCtx.currentTime + delay);
+    osc.stop(_audioCtx.currentTime  + delay + 0.4);
+  });
+}
+
+// Detect truly new orders on each load
+const _origLoadOrders = loadOrders;
+loadOrders = async function() {
+  await _origLoadOrders();
+  const currentIds = new Set((orders || []).map(o => o.id));
+  const newIds = [...currentIds].filter(id => !_prevOrderIds.has(id));
+  if (_prevOrderIds.size > 0 && newIds.length > 0) {
+    playNewOrderAlert();
+    // Flash the page header briefly
+    const hdr = document.querySelector('nav');
+    if (hdr) {
+      hdr.style.transition = 'background 0.3s';
+      hdr.style.background = 'rgba(251,191,36,0.3)';
+      setTimeout(() => { hdr.style.background = ''; }, 800);
+    }
+  }
+  _prevOrderIds = currentIds;
+};
+
+// Unlock audio on first user interaction (browser policy)
+document.addEventListener('click', _ensureAudioCtx, { once: true });
+document.addEventListener('keydown', _ensureAudioCtx, { once: true });
+
+// ── WebSocket real-time connection ────────────────────────────────────────────
+let ws = null;
+let wsReconnectTimer = null;
+
+function connectKitchenWS() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}/ws/kitchen`);
+
+  ws.onopen = () => {
+    console.log('[Kitchen WS] Connected');
+    if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
+    // Reduce polling interval when WS is active
+    if (refreshInterval) { clearInterval(refreshInterval); refreshInterval = setInterval(loadOrders, 60000); }
+  };
+
+  ws.onmessage = (evt) => {
+    try {
+      const data = JSON.parse(evt.data);
+      if (['new_order','status_change','payment_confirmed'].includes(data.event)) {
+        loadOrders();
+      }
+    } catch (_) {}
+  };
+
+  ws.onclose = () => {
+    console.log('[Kitchen WS] Closed — reconnecting in 5s');
+    // Fall back to faster polling while disconnected
+    if (refreshInterval) clearInterval(refreshInterval);
+    refreshInterval = setInterval(loadOrders, 15000);
+    wsReconnectTimer = setTimeout(connectKitchenWS, 5000);
+  };
+
+  ws.onerror = () => { ws.close(); };
+
+  // Keep-alive ping every 25s
+  setInterval(() => { if (ws && ws.readyState === WebSocket.OPEN) ws.send('ping'); }, 25000);
+}
+
+// ── Change own password modal (kitchen staff) ─────────────────────────────────
+function openChangePwModal() {
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  document.getElementById('changePwUser').textContent = user.username || '';
+  ['cpCurrent','cpNew','cpConfirm'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('cpError').classList.add('hidden');
+  document.getElementById('changePwModal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('cpCurrent').focus(), 100);
+}
+function closeChangePwModal() { document.getElementById('changePwModal').classList.add('hidden'); }
+
+async function submitChangePw() {
+  const current = document.getElementById('cpCurrent').value;
+  const newPw   = document.getElementById('cpNew').value;
+  const confirm = document.getElementById('cpConfirm').value;
+  const errEl   = document.getElementById('cpError');
+  const btn     = document.getElementById('cpSaveBtn');
+  errEl.classList.add('hidden');
+
+  if (!current || !newPw || !confirm) { errEl.textContent = 'All fields are required.'; errEl.classList.remove('hidden'); return; }
+  if (newPw.length < 8)  { errEl.textContent = 'New password must be at least 8 characters.'; errEl.classList.remove('hidden'); return; }
+  if (newPw !== confirm) { errEl.textContent = 'Passwords do not match.'; errEl.classList.remove('hidden'); return; }
+
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const res  = await fetch(`${API}/api/auth/change-password`, {
+      method: 'PATCH', headers,
+      body: JSON.stringify({ current_password: current, new_password: newPw }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      closeChangePwModal();
+      // Brief success flash
+      const flash = document.createElement('div');
+      flash.textContent = 'Password updated!';
+      flash.className   = 'fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl text-white text-sm font-semibold shadow-lg';
+      flash.style.background = '#16a34a';
+      document.body.appendChild(flash);
+      setTimeout(() => flash.remove(), 3000);
+    } else {
+      errEl.textContent = data.detail || 'Failed to update password.';
+      errEl.classList.remove('hidden');
+    }
+  } catch (e) {
+    errEl.textContent = 'Network error. Try again.';
+    errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Update Password';
+  }
+}
+
+init().then(() => connectKitchenWS());
+</script>
+</body>
+</html>
