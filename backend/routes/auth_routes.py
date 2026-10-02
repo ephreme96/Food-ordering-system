@@ -1,5 +1,6 @@
 from __future__ import annotations
 import logging
+import os
 import time
 from collections import defaultdict
 from datetime import timedelta
@@ -9,12 +10,14 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
+import totp
 from auth import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     create_access_token,
     get_current_user,
     get_password_hash,
     require_role,
+    revoke_sessions,
     verify_password,
 )
 from database import get_db
@@ -71,6 +74,16 @@ def _clear_login_attempts(username: str) -> None:
     _failed_attempts.pop(username, None)
 
 
+OTP_REQUIRED = "OTP_REQUIRED"   # login.html shows the code field when it sees this
+
+
+def _issue_token(user: User) -> str:
+    return create_access_token(
+        data={"sub": user.username, "role": user.role.value, "ver": user.token_version or 0},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
+
+
 @router.post("/login", response_model=Token)
 @limiter.limit("10/minute")  # Security: max 10 login attempts per IP per minute
 def login(request: Request, credentials: UserLogin, db: Session = Depends(get_db)):
@@ -78,7 +91,10 @@ def login(request: Request, credentials: UserLogin, db: Session = Depends(get_db
 
     # Security: check lockout BEFORE hitting the database or running bcrypt.
     # This prevents DoS via CPU-exhaustion through many parallel bcrypt calls.
-    _check_account_lockout(credentials.username)
+    # Count failures per (username, IP): a stranger guessing passwords only
+    # locks themselves out, not the real owner on a different network.
+    lock_key = f"{credentials.username}|{get_remote_address(request)}"
+    _check_account_lockout(lock_key)
 
     user = db.query(User).filter(User.username == credentials.username).first()
 
@@ -89,7 +105,7 @@ def login(request: Request, credentials: UserLogin, db: Session = Depends(get_db
     password_ok   = verify_password(credentials.password, hash_to_check)
 
     if not user or not password_ok:
-        _record_failed_login(credentials.username)
+        _record_failed_login(lock_key)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
@@ -102,15 +118,19 @@ def login(request: Request, credentials: UserLogin, db: Session = Depends(get_db
             detail="Account is disabled. Contact your administrator.",
         )
 
+    # Two-step login: the password alone is not enough once a code is set up.
+    if user.totp_enabled:
+        if not credentials.otp:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=OTP_REQUIRED)
+        if not totp.verify(user.totp_secret, credentials.otp):
+            _record_failed_login(lock_key)
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid 2-step code")
+
     # Successful login — clear any recorded failures
-    _clear_login_attempts(credentials.username)
+    _clear_login_attempts(lock_key)
     logger.info("Successful login for user '%s' (role=%s)", user.username, user.role.value)
 
-    access_token = create_access_token(
-        data={"sub": user.username, "role": user.role.value},
-        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
-    )
-    return {"access_token": access_token, "token_type": "bearer", "user": user}
+    return {"access_token": _issue_token(user), "token_type": "bearer", "user": user}
 
 
 @router.post("/register", response_model=UserResponse, status_code=201)
@@ -185,9 +205,11 @@ def change_own_password(
         raise HTTPException(status_code=400, detail="New password must differ from the current one")
 
     current_user.password_hash = get_password_hash(body.new_password)
+    revoke_sessions(current_user)   # other devices using the old password are logged out
     db.commit()
     logger.info("User '%s' changed their own password", current_user.username)
-    return {"detail": "Password updated successfully"}
+    # A fresh token so this device stays logged in.
+    return {"detail": "Password updated successfully", "access_token": _issue_token(current_user)}
 
 
 @router.patch("/users/{user_id}/set-password", status_code=200)
@@ -207,6 +229,85 @@ def admin_set_password(
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
 
     user.password_hash = get_password_hash(body.new_password)
+    revoke_sessions(user)
     db.commit()
     logger.info("Admin set new password for user '%s' (id=%d)", user.username, user_id)
     return {"detail": f"Password for '{user.username}' updated successfully"}
+
+
+# ─── Two-step login (TOTP) ────────────────────────────────────────────────────
+
+class _OtpBody(_BM):
+    code: str
+
+
+class _DisableOtpBody(_BM):
+    password: str
+    code:     str
+
+
+@router.get("/2fa/status")
+def otp_status(current_user: User = Depends(get_current_user)):
+    return {"enabled": bool(current_user.totp_enabled)}
+
+
+@router.post("/2fa/setup")
+@limiter.limit("5/minute")
+def otp_setup(
+    request:      Request,
+    db:           Session = Depends(get_db),
+    current_user: User    = Depends(get_current_user),
+):
+    """Start two-step setup: returns a key to add to an authenticator app."""
+    if current_user.totp_enabled:
+        raise HTTPException(status_code=400, detail="2-step login is already on. Turn it off first.")
+    secret = totp.generate_secret()
+    current_user.totp_secret = secret
+    db.commit()
+    issuer = os.getenv("RESTAURANT_NAME", "Food Ordering")
+    return {
+        "secret":  secret,
+        "otpauth": totp.provisioning_uri(secret, current_user.username, issuer),
+    }
+
+
+@router.post("/2fa/enable")
+@limiter.limit("5/minute")
+def otp_enable(
+    request:      Request,
+    body:         _OtpBody,
+    db:           Session = Depends(get_db),
+    current_user: User    = Depends(get_current_user),
+):
+    """Finish setup by proving the authenticator app shows the right code."""
+    if not current_user.totp_secret:
+        raise HTTPException(status_code=400, detail="Start setup first.")
+    if not totp.verify(current_user.totp_secret, body.code):
+        raise HTTPException(status_code=400, detail="That code is not correct. Check the time on your phone and try again.")
+    current_user.totp_enabled = True
+    revoke_sessions(current_user)
+    db.commit()
+    logger.info("User '%s' turned on 2-step login", current_user.username)
+    return {"enabled": True, "access_token": _issue_token(current_user)}
+
+
+@router.post("/2fa/disable")
+@limiter.limit("5/minute")
+def otp_disable(
+    request:      Request,
+    body:         _DisableOtpBody,
+    db:           Session = Depends(get_db),
+    current_user: User    = Depends(get_current_user),
+):
+    """Turn two-step login off. Needs the password AND a current code."""
+    if not current_user.totp_enabled:
+        return {"enabled": False}
+    if not verify_password(body.password, current_user.password_hash) or \
+            not totp.verify(current_user.totp_secret, body.code):
+        raise HTTPException(status_code=400, detail="Password or code is not correct.")
+    current_user.totp_enabled = False
+    current_user.totp_secret  = None
+    revoke_sessions(current_user)
+    db.commit()
+    logger.info("User '%s' turned off 2-step login", current_user.username)
+    return {"enabled": False, "access_token": _issue_token(current_user)}

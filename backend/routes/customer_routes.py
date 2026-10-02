@@ -18,6 +18,7 @@ from models import (
     Order, OrderStatus, PaymentMethod, PromoCode,
 )
 from payment_chapa import initialize_payment, verify_payment
+from order_paid import on_order_paid
 from receipt import generate_receipt_code, generate_receipt_token
 from schemas import (
     MenuItemResponse,
@@ -115,6 +116,7 @@ async def _do_verify_and_mark_paid(tx_ref: str, db: Session) -> Dict[str, Any]:
     order.status        = OrderStatus.PAID
     order.receipt_code  = receipt_code
     order.receipt_token = receipt_token
+    on_order_paid(order, db)
     db.commit()
     db.refresh(order)
 
@@ -340,7 +342,7 @@ async def create_order(request: Request, order_data: OrderCreate, db: Session = 
                 discount_amount = min(discount_amount, total)
                 total          -= discount_amount
                 promo_code_used = code
-                promo.uses_count += 1
+                # The use is counted in on_order_paid(), once money arrives.
                 logger.info("Promo %s applied: -%.2f ETB", code, discount_amount)
 
     # ── Determine initial order status ────────────────────────────────────────

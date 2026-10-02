@@ -6,8 +6,13 @@
 
 ```bash
 # Production (behind Nginx, localhost bind only):
-ENVIRONMENT=production uvicorn main:app --host 127.0.0.1 --port 8000 --workers 4 --app-dir backend
+cd backend && ./start_production.sh
 ```
+
+- Use **one worker**. Live order feeds (WebSockets) and login lockouts are kept
+  in memory, so several workers would each see only part of them.
+- `--proxy-headers` (in the script) lets rate limits see each visitor's real IP
+  through Nginx. Set `FORWARDED_ALLOW_IPS` if the proxy is on another machine.
 
 - `ENVIRONMENT=production` in `.env` disables the interactive API docs
   (`/api/docs`, `/api/redoc`, `/api/openapi.json`).
@@ -93,3 +98,16 @@ python -m pytest tests/test_authz.py -v
 Verifies anonymous users and cross-role tokens (kitchen→cashier, cashier→admin, …)
 are rejected with 401/403 on every staff endpoint. Run after any change to
 routes or auth code.
+
+## Money and account controls
+
+- **Refunds** made by a cashier wait for an admin to approve them (cashier
+  screen → Refunds → Approve, logged in as admin). `CASHIER_REFUND_LIMIT_ETB`
+  lets cashiers give small cash refunds without approval (default 0 = never).
+- **Loyalty points** are only awarded by the server when an order is paid.
+  Online reward claims reserve points; they are deducted when an admin marks
+  the reward collected.
+- **Reviews** are hidden until approved in Admin → Reviews.
+- **2-step login**: Admin → Security → turn on 2-step login. Lost your phone?
+  Run `python change_password.py` in `backend/` on the server; it can turn it off.
+- Changing a password logs that account out on every other device.

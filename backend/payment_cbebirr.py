@@ -135,7 +135,11 @@ def verify_callback(payload: dict) -> bool:
     """
     if _SANDBOX:
         return True
-    received_sign = payload.pop("sign", "")
+    if not _API_KEY:
+        # Security: an empty key means anyone can forge a valid signature.
+        logger.error("CBE Birr callback rejected: CBE_BIRR_API_KEY is not set")
+        return False
+    received_sign = str(payload.pop("sign", ""))
     expected      = _sign(payload)
     return hmac.compare_digest(expected, received_sign)
 

@@ -38,6 +38,7 @@ from models import (
     PaymentStatus,
     PromoCode,
 )
+from order_paid import on_order_paid
 from receipt import generate_receipt_code, generate_receipt_token
 from sms import order_placed_msg, payment_confirmed_msg, send_sms
 from ws_manager import ws_manager
@@ -88,6 +89,14 @@ def _audit(
     ))
 
 
+def _amount_matches(reported: Any, order: Order) -> bool:
+    """True if the gateway's reported amount equals the order total (to the santim)."""
+    try:
+        return abs(float(reported) - order.total_amount) < 0.01
+    except (TypeError, ValueError):
+        return False
+
+
 async def _mark_order_paid(order: Order, reference: str, method: PaymentMethod, db: Session) -> None:
     """Common logic: generate receipt, update order status, persist Payment row, emit WS."""
     receipt_code  = generate_receipt_code()
@@ -106,6 +115,7 @@ async def _mark_order_paid(order: Order, reference: str, method: PaymentMethod, 
         external_reference = reference,
         captured_at        = datetime.now(timezone.utc),
     ))
+    on_order_paid(order, db)
     db.commit()
     db.refresh(order)
 
@@ -239,6 +249,9 @@ async def initiate_payment(
         )
 
     method   = body.method.lower()
+    if method != order.payment_method.value:
+        # The callback only accepts the provider the order was placed with.
+        raise HTTPException(status_code=400, detail="Payment method does not match the order")
     phone    = body.customer_phone or order.customer_phone or ""
     ret_url  = f"{FRONTEND_URL}/track/{order.order_number}"
     ntfy_url = f"{BASE_URL}/api/payments/callback/{method}"
@@ -327,6 +340,18 @@ async def telebirr_callback(request: Request, db: Session = Depends(get_db)) -> 
     if order.status == OrderStatus.PAID:
         return {"code": "0", "msg": "already_paid"}
 
+    if order.payment_method != PaymentMethod.telebirr:
+        logger.warning("Telebirr callback for non-Telebirr order %s", out_trade_no)
+        return {"code": "0", "msg": "ignored"}
+
+    if trade_status in ("SUCCESS", "TRADE_SUCCESS") and not _amount_matches(payload.get("totalAmount"), order):
+        logger.warning("Telebirr amount mismatch on %s: got %r, expected %.2f",
+                       out_trade_no, payload.get("totalAmount"), order.total_amount)
+        _audit(db, AuditEvent.PAYMENT_FAILED, order,
+               note=f"Telebirr amount mismatch: {payload.get('totalAmount')!r}", ip_address=request.client.host)
+        db.commit()
+        return {"code": "0", "msg": "amount_mismatch"}
+
     if trade_status in ("SUCCESS", "TRADE_SUCCESS"):
         _audit(db, AuditEvent.PAYMENT_CONFIRMED, order,
                note=f"Telebirr trade_no={trade_no}", ip_address=request.client.host)
@@ -373,6 +398,18 @@ async def cbebirr_callback(request: Request, db: Session = Depends(get_db)) -> D
 
     if order.status == OrderStatus.PAID:
         return {"code": "SUCCESS", "msg": "already_paid"}
+
+    if order.payment_method != PaymentMethod.cbebirr:
+        logger.warning("CBE Birr callback for non-CBE Birr order %s", order_no)
+        return {"code": "SUCCESS", "msg": "ignored"}
+
+    if status == "SUCCESS" and not _amount_matches(payload.get("amount"), order):
+        logger.warning("CBE Birr amount mismatch on %s: got %r, expected %.2f",
+                       order_no, payload.get("amount"), order.total_amount)
+        _audit(db, AuditEvent.PAYMENT_FAILED, order,
+               note=f"CBE Birr amount mismatch: {payload.get('amount')!r}", ip_address=request.client.host)
+        db.commit()
+        return {"code": "SUCCESS", "msg": "amount_mismatch"}
 
     if status == "SUCCESS":
         _audit(db, AuditEvent.PAYMENT_CONFIRMED, order,

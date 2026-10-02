@@ -1326,25 +1326,7 @@ async function placeOrder() {
     const order = await orderRes.json();
     if (!orderRes.ok) { showCheckoutError(order.detail || 'Failed to place order'); return; }
 
-    // Earn points after order placed (fire-and-forget)
-    const storedIdentifier = localStorage.getItem('loyaltyIdentifier');
-    const earnIdentifier   = storedIdentifier || phone || null;
-    if (earnIdentifier) {
-      const orderTotal   = Object.values(cart).reduce((s, e) => s + e.adjustedPrice * e.qty, 0);
-      const isEmailIdent = earnIdentifier.includes('@');
-      const earnPayload  = {
-        display_name: localStorage.getItem('loyaltyDisplayName') || name,
-        order_id: order.id,
-        order_number: order.order_number,
-        amount: orderTotal,
-      };
-      if (isEmailIdent) earnPayload.email = earnIdentifier;
-      else              earnPayload.phone = earnIdentifier;
-      fetch(`${API}/api/loyalty/earn`, {
-        method: 'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify(earnPayload),
-      }).then(r => r.json()).then(() => refreshStoredLoyalty()).catch(() => {});
-    }
+    // Loyalty points are awarded by the server once the order is paid.
 
     if (payMethod === 'online') {
       const payRes = await fetch(`${API}/api/payment/initialize/${order.id}`, {
@@ -1837,7 +1819,7 @@ async function loadLoyaltyDashboard(identifier) {
           <div class="flex items-center justify-between text-xs py-1.5 border-b" style="border-color:#1e1e1e;">
             <div>
               <span class="font-bold" style="color:${t.type==='earn'?'#4ade80':'#f87171'};">${t.type==='earn'?'+':'-'}${t.points} pts</span>
-              <span class="ml-1" style="color:rgba(255,255,255,.3);">${t.description||''}</span>
+              <span class="ml-1" style="color:rgba(255,255,255,.3);">${escHtml(t.description||'')}</span>
             </div>
             <span style="color:rgba(255,255,255,.2);">${new Date(t.created_at).toLocaleDateString()}</span>
           </div>`).join('');
@@ -2145,7 +2127,7 @@ async function submitReview() {
       closeReviewModal();
       loadReviews();
       loadReviewSummary();
-      showToast(isEdit ? 'Review updated!' : 'Thank you for your review!', 'green');
+      showToast('Thank you! Your review will appear once the restaurant approves it.', 'green');
     } else {
       const d = await res.json();
       errEl.textContent = d.detail || 'Submission failed'; errEl.classList.remove('hidden');

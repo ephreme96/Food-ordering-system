@@ -14,6 +14,7 @@ from models import (
     AuditEvent, AuditLog, LoyaltyAccount, MenuIngredient, MenuItem, Order, OrderStatus,
     PaymentMethod, Review, SuspiciousActivity, User, UserRole,
 )
+from order_paid import on_order_paid
 from receipt import generate_receipt_code, generate_receipt_token
 from ws_manager import ws_manager
 from schemas import (
@@ -315,6 +316,7 @@ async def mark_cash_order_paid(
     order.status        = OrderStatus.PAID
     order.receipt_code  = receipt_code
     order.receipt_token = receipt_token
+    on_order_paid(order, db)
 
     db.add(AuditLog(
         event        = AuditEvent.CASH_MARKED_PAID,
@@ -824,12 +826,29 @@ def fulfill_claim(
     db: Session = Depends(get_db),
     _: User = Depends(require_role(UserRole.admin)),
 ):
-    """Admin: mark a reward claim as fulfilled."""
-    from models import RewardClaim
+    """
+    Admin: hand the reward over and mark the claim fulfilled.
+    Points are deducted here, not when the customer claims online, so nobody
+    can spend someone else's points just by typing their phone number.
+    """
+    from models import LoyaltyAccount, PointTransaction, RewardClaim
     from datetime import datetime, timezone
     claim = db.query(RewardClaim).filter(RewardClaim.id == claim_id).first()
     if not claim:
         raise HTTPException(404, "Claim not found.")
+    if claim.is_fulfilled:
+        raise HTTPException(400, "This reward was already handed over.")
+    acc = db.query(LoyaltyAccount).filter(LoyaltyAccount.id == claim.account_id).first()
+    if not acc or acc.points_balance < claim.points_spent:
+        raise HTTPException(400, "Customer no longer has enough points for this reward.")
+    acc.points_balance -= claim.points_spent
+    acc.total_redeemed += claim.points_spent
+    db.add(PointTransaction(
+        account_id  = acc.id,
+        txn_type    = "redeem",
+        points      = claim.points_spent,
+        description = f"Reward collected: {claim.reward_name} ({claim.claim_code})",
+    ))
     claim.is_fulfilled = True
     claim.fulfilled_at = datetime.now(timezone.utc)
     db.commit()
