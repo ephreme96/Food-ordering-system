@@ -7,7 +7,10 @@ Environment variables:
     TELEBIRR_SHORT_CODE    - Merchant short code
     TELEBIRR_NOTIFY_URL    - Webhook URL for payment callbacks
     TELEBIRR_API_BASE_URL  - API base (default: https://196.188.120.3:38443/apiaccess/payment/gateway)
-    PAYMENT_SANDBOX        - if "true", all API calls are mocked (default: true)
+    TELEBIRR_CA_BUNDLE     - optional path to a CA certificate file for the Telebirr API.
+                             TLS certificates are always verified; if Ethio Telecom's
+                             gateway uses a private CA, point this at their CA cert.
+    PAYMENT_SANDBOX        - if "true", all API calls are mocked (default: false)
 
 Telebirr uses HMAC-SHA256 signatures. Payload keys are sorted alphabetically,
 joined as "key=value&key=value", then signed with the App Key.
@@ -25,11 +28,14 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-_SANDBOX    = os.getenv("PAYMENT_SANDBOX", "true").lower() == "true"
+_SANDBOX    = os.getenv("PAYMENT_SANDBOX", "false").lower() == "true"
 _APP_ID     = os.getenv("TELEBIRR_APP_ID", "")
 _APP_KEY    = os.getenv("TELEBIRR_APP_KEY", "")
 _SHORT_CODE = os.getenv("TELEBIRR_SHORT_CODE", "")
 _NOTIFY_URL = os.getenv("TELEBIRR_NOTIFY_URL", "")
+# Security: never disable TLS verification — without it anyone on the network path
+# can impersonate the gateway and fake "payment succeeded" responses.
+_TLS_VERIFY = os.getenv("TELEBIRR_CA_BUNDLE") or True
 _API_BASE   = os.getenv(
     "TELEBIRR_API_BASE_URL",
     "https://196.188.120.3:38443/apiaccess/payment/gateway",
@@ -104,7 +110,7 @@ async def initiate_payment(
     payload["sign"] = _sign(payload)
 
     try:
-        async with httpx.AsyncClient(verify=False, timeout=30.0) as client:
+        async with httpx.AsyncClient(verify=_TLS_VERIFY, timeout=30.0) as client:
             resp = await client.post(
                 f"{_API_BASE}/c2bPayment/singlePayment",
                 json={"appId": _APP_ID, **payload},
@@ -166,7 +172,7 @@ async def query_status(order_number: str) -> Optional[dict]:
     payload["sign"] = _sign(payload)
 
     try:
-        async with httpx.AsyncClient(verify=False, timeout=15.0) as client:
+        async with httpx.AsyncClient(verify=_TLS_VERIFY, timeout=15.0) as client:
             resp = await client.post(
                 f"{_API_BASE}/c2bPayment/queryPayment",
                 json=payload,

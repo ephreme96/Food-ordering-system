@@ -658,6 +658,7 @@ function connectKitchenWS() {
   ws = new WebSocket(`${proto}://${location.host}/ws/kitchen`);
 
   ws.onopen = () => {
+    ws.send(TOKEN);  // first message authenticates this staff session
     console.log('[Kitchen WS] Connected');
     if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
     // Reduce polling interval when WS is active
@@ -673,7 +674,8 @@ function connectKitchenWS() {
     } catch (_) {}
   };
 
-  ws.onclose = () => {
+  ws.onclose = (evt) => {
+    if (evt.code === 1008) { logout(); return; }  // token rejected — log in again
     console.log('[Kitchen WS] Closed — reconnecting in 5s');
     // Fall back to faster polling while disconnected
     if (refreshInterval) clearInterval(refreshInterval);
