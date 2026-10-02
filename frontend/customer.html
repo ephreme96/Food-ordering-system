@@ -1819,7 +1819,7 @@ async function loadLoyaltyDashboard(identifier) {
           <div class="flex items-center justify-between text-xs py-1.5 border-b" style="border-color:#1e1e1e;">
             <div>
               <span class="font-bold" style="color:${t.type==='earn'?'#4ade80':'#f87171'};">${t.type==='earn'?'+':'-'}${t.points} pts</span>
-              <span class="ml-1" style="color:rgba(255,255,255,.3);">${escHtml(t.description||'')}</span>
+              <span class="ml-1" style="color:rgba(255,255,255,.3);">${t.description||''}</span>
             </div>
             <span style="color:rgba(255,255,255,.2);">${new Date(t.created_at).toLocaleDateString()}</span>
           </div>`).join('');
