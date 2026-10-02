@@ -15,6 +15,9 @@ if %errorlevel%==0 (
 
 echo Not running yet - starting the server...
 echo.
+rem This is for running on your own PC while developing (--reload restarts on
+rem every file save; 0.0.0.0 lets phones on your Wi-Fi open it). For the live
+rem server use backend/start_production.sh instead.
 cd /d "%~dp0backend"
 "C:\Users\Ephre\AppData\Local\Microsoft\WindowsApps\python.exe" -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 echo.

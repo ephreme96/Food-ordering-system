@@ -1125,6 +1125,8 @@ async function submitChangePw() {
     if (res.ok) {
       closeChangePwModal();
       showToast('Password updated successfully!', '#16a34a');
+      // Other devices are logged out; keep this one signed in with the new token.
+      if (data.access_token) { localStorage.setItem('token', data.access_token); setTimeout(() => location.reload(), 1500); }
     } else {
       errEl.textContent = data.detail || 'Failed to update password.';
       errEl.classList.remove('hidden');

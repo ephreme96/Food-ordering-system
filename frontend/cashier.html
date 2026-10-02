@@ -878,7 +878,6 @@ async function chargeOrder() {
     payment_method:  selectedPayMethod,
     amount_tendered: selectedPayMethod === 'cash' ? tendered : null,
     notes:           document.getElementById('orderNotes').value.trim() || null,
-    tax_rate:        0,
   };
 
   try {
@@ -1090,6 +1089,12 @@ async function loadRefunds() {
   } catch (_) {}
 }
 
+// Only an admin can approve refunds (the server enforces this too).
+function isAdminUser() {
+  try { return JSON.parse(localStorage.getItem('user') || 'null')?.role === 'admin'; }
+  catch (_) { return false; }
+}
+
 function refundCard(r, showActions = false) {
   const statusCls = r.status === 'processed' ? 'badge-processed' : r.status === 'failed' ? 'badge-failed' : 'badge-pending';
   return `
@@ -1106,11 +1111,14 @@ function refundCard(r, showActions = false) {
       ${r.dest_phone       ? `<p class="text-xs text-gray-600">${escHtml(r.dest_phone)}</p>` : ''}
       <p class="text-xs text-gray-700 mt-1">${r.created_at ? new Date(r.created_at).toLocaleTimeString() : ''}</p>
     </div>
-    ${showActions && r.status === 'pending' ? `
+    ${showActions && r.status === 'pending' ? (isAdminUser() ? `
       <button onclick="markRefundProcessed(${r.id}, this)"
         class="text-xs px-3 py-1.5 rounded-lg border border-green-800/50 text-green-400 hover:bg-green-900/20 transition cursor-pointer flex-shrink-0">
-        Mark Sent
-      </button>` : ''}
+        Approve
+      </button>` : `
+      <span class="text-xs px-3 py-1.5 rounded-lg border border-amber-800/50 text-amber-400 flex-shrink-0">
+        Waiting for admin
+      </span>`) : ''}
   </div>`;
 }
 
@@ -1118,9 +1126,9 @@ async function markRefundProcessed(id, btn) {
   btn.disabled = true; btn.textContent = '…';
   try {
     const res = await fetch(`${API}/api/cashier/refunds/${id}/mark-processed`, { method:'PATCH', headers:hdr });
-    if (res.ok) { showToast('Refund marked as processed', '#4ade80'); loadRefunds(); loadCashFlowHeader(); }
-    else { btn.disabled = false; btn.textContent = 'Mark Sent'; }
-  } catch (_) { btn.disabled = false; btn.textContent = 'Mark Sent'; }
+    if (res.ok) { showToast('Refund approved', '#4ade80'); loadRefunds(); loadCashFlowHeader(); }
+    else { btn.disabled = false; btn.textContent = 'Approve'; }
+  } catch (_) { btn.disabled = false; btn.textContent = 'Approve'; }
 }
 
 // ── Pending Orders ────────────────────────────────────────────────────────────
@@ -1193,7 +1201,11 @@ async function submitChangePw() {
       method:'PATCH', headers:hdr, body:JSON.stringify({current_password:c, new_password:n})
     });
     const data = await res.json();
-    if (res.ok) { closeChangePw(); showToast('Password updated!', '#4ade80'); }
+    if (res.ok) {
+      closeChangePw(); showToast('Password updated!', '#4ade80');
+      // Other devices are logged out; keep this one signed in with the new token.
+      if (data.access_token) { localStorage.setItem('token', data.access_token); setTimeout(() => location.reload(), 1200); }
+    }
     else { e.textContent = data.detail||'Failed'; e.classList.remove('hidden'); }
   } catch(_) { e.textContent='Network error'; e.classList.remove('hidden'); }
   finally { btn.disabled=false; btn.textContent='Update Password'; }
