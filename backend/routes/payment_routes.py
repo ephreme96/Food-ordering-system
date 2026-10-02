@@ -283,7 +283,8 @@ async def initiate_payment(
             "status":  "sandbox_paid",
             "message": "Sandbox mode: payment auto-confirmed",
             "order_number": order.order_number,
-            "receipt_code": order.receipt_code,
+            "receipt_code":  order.receipt_code,
+            "receipt_token": order.receipt_token,
         }
 
     return {
@@ -392,6 +393,10 @@ async def cbebirr_callback(request: Request, db: Session = Depends(get_db)) -> D
 
 # ─── Payment Status Polling ───────────────────────────────────────────────────
 
+_REDEEMABLE_STATUSES = (OrderStatus.PAID, OrderStatus.PREPARING, OrderStatus.READY)
+_PAID_STATUSES       = _REDEEMABLE_STATUSES + (OrderStatus.PICKED_UP, OrderStatus.COMPLETED)
+
+
 @router.get("/payments/status/{order_number}")
 @limiter.limit("30/minute")
 async def payment_status(
@@ -411,12 +416,18 @@ async def payment_status(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
+    # The kitchen may already have moved the order past PAID by the time the
+    # customer's app polls, so any post-payment status still counts as paid.
+    # The receipt is only returned while it can still be redeemed at pickup.
+    paid       = order.status in _PAID_STATUSES
+    redeemable = order.status in _REDEEMABLE_STATUSES
     return {
-        "order_number": order.order_number,
-        "status":       order.status.value,
-        "paid":         order.status == OrderStatus.PAID,
-        "receipt_code": order.receipt_code if order.status == OrderStatus.PAID else None,
-        "total_amount": order.total_amount,
+        "order_number":  order.order_number,
+        "status":        order.status.value,
+        "paid":          paid,
+        "receipt_code":  order.receipt_code if redeemable else None,
+        "receipt_token": order.receipt_token if redeemable else None,
+        "total_amount":  order.total_amount,
     }
 
 

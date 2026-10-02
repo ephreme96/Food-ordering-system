@@ -141,6 +141,7 @@ export interface MobilePaymentInitResult {
   status: 'sandbox_paid' | 'initiated' | string;
   order_number: string;
   receipt_code?: string;
+  receipt_token?: string;
   checkout_url?: string;
   qr_code?: string;
   reference?: string;
@@ -162,6 +163,7 @@ export interface PaymentStatusResult {
   status: string;
   paid: boolean;
   receipt_code: string | null;
+  receipt_token: string | null;
   total_amount: number;
 }
 

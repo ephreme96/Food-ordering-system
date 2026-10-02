@@ -73,6 +73,7 @@ export default function PayWaitScreen() {
                   totalAmount: params.totalAmount,
                   method,
                   receiptCode: result.receipt_code ?? '',
+                  receiptToken: result.receipt_token ?? '',
                 },
               });
             }
