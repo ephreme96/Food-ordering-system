@@ -1,0 +1,24 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#D81E3F"/>
+      <stop offset="1" stop-color="#9A0C22"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="1024" height="1024" rx="220" fill="url(#bg)"/>
+  <!-- Flame monogram -->
+  <path d="M512 232
+           C 452 320, 372 372, 372 486
+           C 372 592, 452 664, 512 664
+           C 460 620, 444 572, 468 520
+           C 480 552, 500 572, 524 584
+           C 512 552, 516 512, 548 476
+           C 560 520, 588 552, 640 580
+           C 656 528, 652 468, 612 400
+           C 616 440, 604 468, 580 488
+           C 588 428, 568 348, 512 232 Z"
+        fill="#FFFDF8"/>
+  <!-- Flag-nod accent: gold + green capsule beneath the mark -->
+  <rect x="392" y="712" width="120" height="34" rx="17" fill="#D4A017"/>
+  <rect x="512" y="712" width="120" height="34" rx="17" fill="#16A34A"/>
+</svg>
