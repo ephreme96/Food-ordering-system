@@ -777,10 +777,10 @@ def create_refund(
     current_user: User = Depends(require_role(UserRole.cashier, UserRole.admin)),
 ) -> Dict[str, Any]:
     """
-    Issue a refund against an order.
+    Issue a refund against a paid order.
     The cashier records the refund; for electronic methods the details are stored
     so the admin/finance team can process the actual transfer.
-    Cash refunds are marked 'processed' immediately.
+    A cashier's refund stays 'pending' until an admin approves it.
     """
     if body.amount <= 0:
         raise HTTPException(400, detail="Refund amount must be greater than zero")
