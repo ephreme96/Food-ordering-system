@@ -148,6 +148,7 @@ export default function CheckoutScreen() {
               totalAmount: String(order.total_amount),
               method,
               receiptCode: payData.receipt_code ?? '',
+              receiptToken: payData.receipt_token ?? '',
             },
           });
           return;
