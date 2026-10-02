@@ -51,7 +51,7 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:8000")
 BANK_NAME    = os.getenv("BANK_NAME",    "Commercial Bank of Ethiopia")
 BANK_ACCOUNT = os.getenv("BANK_ACCOUNT_NUMBER", "")
 BANK_HOLDER  = os.getenv("BANK_ACCOUNT_NAME",   "Restaurant Account")
-_SANDBOX     = os.getenv("PAYMENT_SANDBOX", "true").lower() == "true"
+_SANDBOX     = os.getenv("PAYMENT_SANDBOX", "false").lower() == "true"
 
 
 # ─── Request / Response schemas ───────────────────────────────────────────────

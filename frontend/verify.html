@@ -1247,6 +1247,7 @@ let cashierWs = null;
 function connectCashierWS() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   cashierWs = new WebSocket(`${proto}://${location.host}/ws/cashier`);
+  cashierWs.onopen = () => cashierWs.send(TOKEN);  // first message authenticates this staff session
 
   cashierWs.onmessage = (evt) => {
     try {
@@ -1265,7 +1266,8 @@ function connectCashierWS() {
     } catch (_) {}
   };
 
-  cashierWs.onclose = () => {
+  cashierWs.onclose = (evt) => {
+    if (evt.code === 1008) { logout(); return; }  // token rejected — log in again
     setTimeout(connectCashierWS, 5000);
   };
 

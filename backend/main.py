@@ -45,6 +45,16 @@ def _validate_env() -> None:
             "Generate one: python -c \"import secrets; print(secrets.token_hex(32))\""
         )
 
+    # Sandbox auto-confirms payments without charging anyone, so it must never
+    # be switched on for the live site.
+    sandbox = os.getenv("PAYMENT_SANDBOX", "false").lower() == "true"
+    production = os.getenv("ENVIRONMENT", "development").lower() == "production"
+    if sandbox and production:
+        raise RuntimeError(
+            "FATAL: PAYMENT_SANDBOX=true is not allowed when ENVIRONMENT=production. "
+            "Sandbox mode marks orders as paid without taking any money."
+        )
+
 _validate_env()  # Called at import time — server will not start with bad secrets
 
 logging.basicConfig(
@@ -655,14 +665,48 @@ app.include_router(payment_router)
 
 
 # ── WebSocket endpoints ───────────────────────────────────────────────────────
-from fastapi import WebSocket, WebSocketDisconnect
+import asyncio
+from fastapi import WebSocket, WebSocketDisconnect, status
+from auth import user_from_token
+from database import SessionLocal
+from models import UserRole
 from ws_manager import ws_manager
+
+# Security: the kitchen and cashier feeds carry live order and payment data, so
+# only logged-in staff may join them. Browsers cannot set an Authorization header
+# on a WebSocket, and a token in the URL ends up in access logs, so the client
+# sends its JWT as the first message instead. Anything else closes the socket.
+WS_AUTH_TIMEOUT_SECONDS = 5
+
+
+async def _ws_authenticate(websocket: WebSocket, *roles: UserRole) -> bool:
+    await websocket.accept()
+    try:
+        token = await asyncio.wait_for(websocket.receive_text(), WS_AUTH_TIMEOUT_SECONDS)
+    except (asyncio.TimeoutError, WebSocketDisconnect):
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return False
+
+    db = SessionLocal()
+    try:
+        user = user_from_token(token, db)
+        allowed = user is not None and user.role in roles
+    finally:
+        db.close()
+
+    if not allowed:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return False
+    await websocket.send_text('{"event":"authenticated"}')
+    return True
 
 
 @app.websocket("/ws/kitchen")
 async def ws_kitchen(websocket: WebSocket):
-    """Kitchen display — receives new_order, status_change events."""
-    await ws_manager.connect(websocket, "kitchen")
+    """Kitchen display — receives new_order, status_change events. Kitchen/admin only."""
+    if not await _ws_authenticate(websocket, UserRole.kitchen, UserRole.admin):
+        return
+    ws_manager.join(websocket, "kitchen")
     try:
         while True:
             await websocket.receive_text()  # keep alive; clients send pings
@@ -672,8 +716,10 @@ async def ws_kitchen(websocket: WebSocket):
 
 @app.websocket("/ws/cashier")
 async def ws_cashier(websocket: WebSocket):
-    """Cashier POS — receives payment_confirmed, bank_transfer_claim events."""
-    await ws_manager.connect(websocket, "cashier")
+    """Cashier POS — receives payment_confirmed, bank_transfer_claim events. Cashier/admin only."""
+    if not await _ws_authenticate(websocket, UserRole.cashier, UserRole.admin):
+        return
+    ws_manager.join(websocket, "cashier")
     try:
         while True:
             await websocket.receive_text()

@@ -28,6 +28,10 @@ class ConnectionManager:
 
     async def connect(self, websocket: WebSocket, room: str) -> None:
         await websocket.accept()
+        self.join(websocket, room)
+
+    def join(self, websocket: WebSocket, room: str) -> None:
+        """Add an already-accepted connection to a room."""
         self._rooms[room].add(websocket)
         logger.debug("WS connected: room=%s total=%d", room, len(self._rooms[room]))
 

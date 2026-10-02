@@ -525,6 +525,7 @@ loadPendingOrders();
 // WebSocket for real-time updates
 const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
 const cashierWs = new WebSocket(`${wsProto}://${location.host}/ws/cashier`);
+cashierWs.onopen = () => cashierWs.send(token);  // first message authenticates this staff session
 cashierWs.onmessage = (e) => {
   try {
     const d = JSON.parse(e.data);
@@ -535,7 +536,10 @@ cashierWs.onmessage = (e) => {
     }
   } catch (_) {}
 };
-cashierWs.onclose = () => setTimeout(() => location.reload(), 5000);
+cashierWs.onclose = (e) => {
+  if (e.code === 1008) { logout(); return; }  // token rejected — log in again
+  setTimeout(() => location.reload(), 5000);
+};
 
 // ── Tab switching ─────────────────────────────────────────────────────────────
 function switchTab(name, btn) {

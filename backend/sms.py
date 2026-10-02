@@ -5,7 +5,7 @@ Environment variables:
     AFRICASTALKING_USERNAME  - your AT username ("sandbox" for testing)
     AFRICASTALKING_API_KEY   - your AT API key
     AFRICASTALKING_FROM      - sender ID (optional, short-code or alphanumeric)
-    PAYMENT_SANDBOX          - if "true", SMS is logged but NOT sent to AT (default: true)
+    PAYMENT_SANDBOX          - if "true", SMS is logged but NOT sent to AT (default: false)
 """
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-_SANDBOX    = os.getenv("PAYMENT_SANDBOX", "true").lower() == "true"
+_SANDBOX    = os.getenv("PAYMENT_SANDBOX", "false").lower() == "true"
 _USERNAME   = os.getenv("AFRICASTALKING_USERNAME", "sandbox")
 _API_KEY    = os.getenv("AFRICASTALKING_API_KEY", "")
 _FROM       = os.getenv("AFRICASTALKING_FROM", "")

@@ -6,7 +6,7 @@ Environment variables:
     CBE_BIRR_API_KEY       - Your API key / secret
     CBE_BIRR_NOTIFY_URL    - Webhook URL for callbacks
     CBE_BIRR_API_BASE_URL  - API base (default: https://api.cbebirr.et/v1)
-    PAYMENT_SANDBOX        - if "true", all API calls are mocked (default: true)
+    PAYMENT_SANDBOX        - if "true", all API calls are mocked (default: false)
 
 CBE Birr uses HMAC-SHA256 signatures with sorted key=value pairs.
 """
@@ -23,7 +23,7 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-_SANDBOX     = os.getenv("PAYMENT_SANDBOX", "true").lower() == "true"
+_SANDBOX     = os.getenv("PAYMENT_SANDBOX", "false").lower() == "true"
 _MERCHANT_ID = os.getenv("CBE_BIRR_MERCHANT_ID", "")
 _API_KEY     = os.getenv("CBE_BIRR_API_KEY", "")
 _NOTIFY_URL  = os.getenv("CBE_BIRR_NOTIFY_URL", "")

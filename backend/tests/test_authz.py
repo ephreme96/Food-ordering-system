@@ -7,6 +7,8 @@ Confirms:
   2. A forged/garbage token is rejected with 401.
   3. A kitchen token cannot reach cashier or admin endpoints (403).
   4. A cashier token cannot reach admin-only or kitchen endpoints (403).
+  5. The live kitchen/cashier WebSocket feeds reject missing, forged and
+     wrong-role tokens, and accept the right staff role.
 
 Run against a live server:
     cd backend
@@ -102,3 +104,46 @@ def test_cashier_cannot_cross_roles(method, path):
     assert r.status_code == 403, (
         f"cashier token got {r.status_code} on {method} {path} (expected 403)"
     )
+
+
+# ── 5. Live kitchen/cashier feeds must require a staff token ─────────────────
+# The client sends its JWT as the first message; the server closes with 1008
+# (policy violation) for anything else.
+
+from websockets.exceptions import ConnectionClosed  # noqa: E402
+from websockets.sync.client import connect as ws_connect  # noqa: E402
+
+WS_BASE_URL = BASE_URL.replace("http", "ws", 1)
+
+
+def _ws_first_reply(path: str, token: str | None) -> str | int:
+    """Return the server's first message, or the close code if it hangs up."""
+    with ws_connect(WS_BASE_URL + path, open_timeout=10) as ws:
+        try:
+            if token is not None:
+                ws.send(token)
+            return ws.recv(timeout=10)
+        except ConnectionClosed as exc:
+            return exc.rcvd.code if exc.rcvd else -1
+
+
+@pytest.mark.parametrize("path", ["/ws/kitchen", "/ws/cashier"])
+@pytest.mark.parametrize("token", ["", "not.a.real.jwt"])
+def test_ws_feed_rejects_bad_token(path, token):
+    assert _ws_first_reply(path, token) == 1008
+
+
+@pytest.mark.parametrize("path,username", [
+    ("/ws/kitchen", "cashier1"),
+    ("/ws/cashier", "kitchen_staff"),
+])
+def test_ws_feed_rejects_wrong_role(path, username):
+    assert _ws_first_reply(path, _token_for(username)) == 1008
+
+
+@pytest.mark.parametrize("path,username", [
+    ("/ws/kitchen", "kitchen_staff"),
+    ("/ws/cashier", "cashier1"),
+])
+def test_ws_feed_accepts_staff(path, username):
+    assert '"authenticated"' in _ws_first_reply(path, _token_for(username))
