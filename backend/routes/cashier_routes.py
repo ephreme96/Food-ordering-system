@@ -1,5 +1,6 @@
 from __future__ import annotations
 import logging
+import os
 import uuid
 from collections import defaultdict
 from datetime import datetime, date, timezone, timedelta
@@ -478,19 +479,19 @@ def pos_menu(
 
 class POSLineItem(BaseModel):
     menu_item_id: int
-    quantity: int = 1
+    quantity: int = Field(1, ge=1, le=50)   # no zero/negative quantities
     customization_ids: List[int] = []
-    special_instructions: Optional[str] = None
+    special_instructions: Optional[str] = Field(None, max_length=500)
 
 
 class POSChargeRequest(BaseModel):
-    customer_name:  str = "Walk-in"
-    customer_phone: Optional[str] = None
-    items:          List[POSLineItem]
+    customer_name:  str = Field("Walk-in", max_length=100)
+    customer_phone: Optional[str] = Field(None, max_length=30)
+    items:          List[POSLineItem] = Field(..., max_length=100)
     payment_method: str = "cash"        # cash | telebirr | cbebirr | bank_transfer | card
-    amount_tendered: Optional[float] = None   # cash given by customer (for change calc)
-    notes:          Optional[str] = None
-    tax_rate:       float = 0.0         # percentage, e.g. 15.0 for 15% — reserved for later
+    amount_tendered: Optional[float] = Field(None, ge=0)   # cash given by customer (for change calc)
+    notes:          Optional[str] = Field(None, max_length=500)
+    # Tax is NOT accepted from the request; it comes from POS_TAX_RATE on the server.
 
 
 @router.post("/pos/charge")
@@ -523,10 +524,15 @@ async def pos_charge(
         customizations = []
         price_adj = menu_item.price
         for cid in line.customization_ids:
-            ing = db.query(MenuIngredient).filter(MenuIngredient.id == cid).first()
-            if ing:
-                price_adj += ing.price_delta
-                customizations.append({"id": ing.id, "name": ing.name, "price_delta": ing.price_delta})
+            ing = db.query(MenuIngredient).filter(
+                MenuIngredient.id           == cid,
+                MenuIngredient.menu_item_id == menu_item.id,   # must belong to this item
+                MenuIngredient.is_available == True,
+            ).first()
+            if not ing:
+                raise HTTPException(400, detail=f"Invalid option {cid} for '{menu_item.name}'")
+            price_adj += ing.price_delta
+            customizations.append({"id": ing.id, "name": ing.name, "price_delta": ing.price_delta})
 
         line_total = round(price_adj * line.quantity, 2)
         subtotal  += line_total
@@ -542,8 +548,8 @@ async def pos_charge(
             "special_instructions": line.special_instructions,
         })
 
-    # Tax placeholder (stored as 0 until admin enables it)
-    tax_amount   = round(subtotal * body.tax_rate / 100, 2)
+    # Tax rate is a server setting (POS_TAX_RATE, percent); 0 until the owner enables it.
+    tax_amount   = round(subtotal * POS_TAX_RATE / 100, 2)
     total_amount = round(subtotal + tax_amount, 2)
 
     # Change calculation
@@ -736,6 +742,17 @@ def cash_flow(
 
 # ─── Refunds ──────────────────────────────────────────────────────────────────
 
+# Refunds are only allowed on orders where money actually arrived.
+_REFUNDABLE_STATUSES = (
+    OrderStatus.PAID, OrderStatus.PREPARING, OrderStatus.READY,
+    OrderStatus.PICKED_UP, OrderStatus.COMPLETED,
+)
+# POS tax percentage, set by the owner in .env (never by the cashier's browser).
+POS_TAX_RATE = max(0.0, float(os.getenv("POS_TAX_RATE", "0")))
+# Cash refunds a cashier may give without admin approval (ETB). 0 = all need approval.
+CASHIER_REFUND_LIMIT_ETB = float(os.getenv("CASHIER_REFUND_LIMIT_ETB", "0"))
+
+
 class RefundCreateRequest(BaseModel):
     order_number:      str
     amount:            float
@@ -760,25 +777,43 @@ def create_refund(
     current_user: User = Depends(require_role(UserRole.cashier, UserRole.admin)),
 ) -> Dict[str, Any]:
     """
-    Issue a refund against an order.
+    Issue a refund against a paid order.
     The cashier records the refund; for electronic methods the details are stored
     so the admin/finance team can process the actual transfer.
-    Cash refunds are marked 'processed' immediately.
+    A cashier's refund stays 'pending' until an admin approves it.
     """
     if body.amount <= 0:
         raise HTTPException(400, detail="Refund amount must be greater than zero")
 
-    # Look up the order (optional — order may have been deleted)
+    # Security: refunds only against a real order that was actually paid.
     order = db.query(Order).filter(Order.order_number == body.order_number).first()
-    if order and body.amount > order.total_amount:
-        raise HTTPException(400, detail=f"Refund amount exceeds order total (ETB {order.total_amount:.2f})")
+    if not order:
+        raise HTTPException(404, detail="Order not found")
+    if order.status not in _REFUNDABLE_STATUSES:
+        raise HTTPException(400, detail=f"Only paid orders can be refunded (status: {order.status.value})")
 
-    # Cash refunds are processed immediately at the counter
-    is_immediate = body.refund_method == "cash"
+    # All refunds on one order together can never exceed what was paid.
+    already = sum(
+        r.amount for r in db.query(Refund).filter(Refund.order_number == order.order_number).all()
+    )
+    if already + body.amount > order.total_amount + 0.001:
+        raise HTTPException(
+            400,
+            detail=(f"Refunds would exceed the order total. Already refunded ETB {already:.2f} "
+                    f"of ETB {order.total_amount:.2f}"),
+        )
+
+    # Separation of duties: a cashier's refund waits for an admin to approve it,
+    # unless it is a cash refund under CASHIER_REFUND_LIMIT_ETB (default 0 = never).
+    # An admin's own refund is approved immediately.
+    is_admin     = current_user.role == UserRole.admin
+    is_immediate = is_admin or (
+        body.refund_method == "cash" and body.amount <= CASHIER_REFUND_LIMIT_ETB
+    )
     now = datetime.now(timezone.utc)
 
     refund = Refund(
-        order_id          = order.id if order else None,
+        order_id          = order.id,
         order_number      = body.order_number,
         amount            = round(body.amount, 2),
         reason            = body.reason,
@@ -798,7 +833,7 @@ def create_refund(
 
     db.add(AuditLog(
         event        = AuditEvent.REFUND_ISSUED,
-        order_id     = order.id if order else None,
+        order_id     = order.id,
         order_number = body.order_number,
         actor_id     = current_user.id,
         actor_name   = current_user.username,
@@ -822,9 +857,10 @@ def create_refund(
         "refund_method": refund.refund_method,
         "status":        refund.status.value,
         "message":       (
-            f"Cash refund of ETB {refund.amount:.2f} processed."
+            f"Refund of ETB {refund.amount:.2f} approved."
             if is_immediate else
-            f"Refund of ETB {refund.amount:.2f} via {body.refund_method} recorded. Finance team will process the transfer."
+            f"Refund of ETB {refund.amount:.2f} via {body.refund_method} recorded. "
+            "It is waiting for admin approval; do not hand over money until it is approved."
         ),
     }
 
@@ -875,9 +911,9 @@ def list_refunds(
 def mark_refund_processed(
     refund_id:    int,
     db:           Session = Depends(get_db),
-    current_user: User    = Depends(require_role(UserRole.cashier, UserRole.admin)),
+    current_user: User    = Depends(require_role(UserRole.admin)),
 ) -> Dict[str, Any]:
-    """Mark an electronic refund as processed (money has been sent)."""
+    """Admin only: approve a refund and mark it processed (money has been sent)."""
     refund = db.query(Refund).filter(Refund.id == refund_id).first()
     if not refund:
         raise HTTPException(404, detail="Refund not found")

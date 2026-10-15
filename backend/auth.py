@@ -63,7 +63,16 @@ def user_from_token(token: str, db: Session) -> Optional[User]:
     user = db.query(User).filter(User.username == username).first()
     if user is None or not user.is_active:
         return None
+    # A password change (or disable) bumps token_version, which logs out
+    # every token issued before it.
+    if payload.get("ver", 0) != (user.token_version or 0):
+        return None
     return user
+
+
+def revoke_sessions(user: User) -> None:
+    """Invalidate all of this user's existing login tokens."""
+    user.token_version = (user.token_version or 0) + 1
 
 
 def get_current_user(

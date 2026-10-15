@@ -8,7 +8,6 @@ Rules:
 """
 from __future__ import annotations
 import logging
-import math
 import secrets
 from datetime import datetime, timezone
 from typing import Optional, List
@@ -27,7 +26,8 @@ router  = APIRouter(prefix="/api/loyalty", tags=["Loyalty"])
 limiter = Limiter(key_func=get_remote_address)
 
 # ── Constants ─────────────────────────────────────────────────────────────────
-ETB_PER_POINT = 10        # 10 ETB = 1 point
+ETB_PER_POINT = 10        # 10 ETB = 1 point (points are awarded in order_paid.py)
+MAX_PENDING_CLAIMS = 3    # uncollected rewards allowed per customer
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -35,15 +35,6 @@ class JoinRequest(BaseModel):
     identifier:   str           = Field(..., min_length=3, max_length=255,
                                          description="Phone number or email address")
     display_name: Optional[str] = Field(None, max_length=100)
-
-
-class EarnRequest(BaseModel):
-    phone:        Optional[str] = Field(None, max_length=30)
-    email:        Optional[str] = Field(None, max_length=255)
-    display_name: Optional[str] = Field(None, max_length=100)
-    order_id:     Optional[int] = None
-    order_number: Optional[str] = None
-    amount:       float         = Field(..., gt=0)
 
 
 class BalanceResponse(BaseModel):
@@ -54,12 +45,6 @@ class BalanceResponse(BaseModel):
     total_earned:   int
     total_redeemed: int
     next_reward_pts: int          # points needed for cheapest reachable reward
-
-
-class EarnResponse(BaseModel):
-    points_earned: int
-    new_balance:   int
-    total_earned:  int
 
 
 class RewardItemResponse(BaseModel):
@@ -189,54 +174,6 @@ def get_balance(
     return _balance_response(acc, db)
 
 
-@router.post("/earn", response_model=EarnResponse)
-@limiter.limit("20/minute")
-def earn_points(request: Request, body: EarnRequest, db: Session = Depends(get_db)):
-    """Credit points after an order. 10 ETB = 1 point. Idempotent by order_id."""
-    identifier = body.phone or body.email
-    if not identifier:
-        raise HTTPException(400, "Provide phone or email to earn points.")
-
-    # Idempotency check
-    if body.order_id:
-        existing = db.query(PointTransaction).filter(
-            PointTransaction.order_id == body.order_id,
-            PointTransaction.txn_type == "earn",
-        ).first()
-        if existing:
-            acc = db.query(LoyaltyAccount).filter(LoyaltyAccount.id == existing.account_id).first()
-            return EarnResponse(
-                points_earned = existing.points,
-                new_balance   = acc.points_balance if acc else 0,
-                total_earned  = acc.total_earned   if acc else 0,
-            )
-
-    pts = math.floor(body.amount / ETB_PER_POINT)
-    if pts <= 0:
-        # No points for tiny orders — return silently
-        acc = _get_or_create_account(identifier, body.display_name, db)
-        db.commit()
-        return EarnResponse(points_earned=0, new_balance=acc.points_balance, total_earned=acc.total_earned)
-
-    acc = _get_or_create_account(identifier, body.display_name, db)
-    acc.points_balance += pts
-    acc.total_earned   += pts
-
-    txn = PointTransaction(
-        account_id   = acc.id,
-        order_id     = body.order_id,
-        order_number = body.order_number,
-        txn_type     = "earn",
-        points       = pts,
-        description  = f"Order {body.order_number or body.order_id} — ETB {body.amount:.2f}",
-    )
-    db.add(txn)
-    db.commit()
-    db.refresh(acc)
-    logger.info("Loyalty earn: %s pts=%d order=%s", identifier, pts, body.order_number)
-    return EarnResponse(points_earned=pts, new_balance=acc.points_balance, total_earned=acc.total_earned)
-
-
 @router.get("/rewards", response_model=List[RewardItemResponse])
 def list_rewards(
     identifier: Optional[str] = Query(None, description="Phone or email — used to show can_claim"),
@@ -306,12 +243,19 @@ def claim_reward(
     acc = _get_or_create_account(body.identifier, body.display_name, db)
     db.flush()
 
-    if acc.points_balance < reward.points_required:
-        raise HTTPException(400, f"Not enough points. You need {reward.points_required} pts but have {acc.points_balance}.")
+    # Security: anyone can type a phone number, so a claim made here only
+    # RESERVES the points. They are deducted when staff hand the reward over
+    # at the counter (admin "fulfill"), after checking the customer in person.
+    pending = db.query(RewardClaim).filter(
+        RewardClaim.account_id   == acc.id,
+        RewardClaim.is_fulfilled == False,
+    ).all()
+    if len(pending) >= MAX_PENDING_CLAIMS:
+        raise HTTPException(400, "You already have rewards waiting to be collected. Collect them at the counter first.")
+    available = acc.points_balance - sum(c.points_spent for c in pending)
+    if available < reward.points_required:
+        raise HTTPException(400, f"Not enough points. You need {reward.points_required} pts but have {max(available, 0)} available.")
 
-    # Deduct points
-    acc.points_balance  -= reward.points_required
-    acc.total_redeemed  += reward.points_required
     reward.quantity_claimed += 1
 
     # Generate unique claim code (retry on collision)
@@ -331,13 +275,6 @@ def claim_reward(
     )
     db.add(claim)
 
-    txn = PointTransaction(
-        account_id   = acc.id,
-        txn_type     = "redeem",
-        points       = reward.points_required,
-        description  = f"Claimed reward: {reward.name}",
-    )
-    db.add(txn)
     db.commit()
     db.refresh(acc)
 
@@ -346,7 +283,7 @@ def claim_reward(
         claim_code   = code,
         reward_name  = reward.name,
         points_spent = reward.points_required,
-        new_balance  = acc.points_balance,
+        new_balance  = available - reward.points_required,
     )
 
 

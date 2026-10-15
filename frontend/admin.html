@@ -495,6 +495,39 @@
       </button>
     </div>
 
+    <!-- Two-step login for this admin account -->
+    <div class="bg-white rounded-2xl border border-slate-200 mb-5 p-5">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h3 class="font-semibold text-slate-900 text-sm">2-step login (authenticator app)</h3>
+          <p class="text-xs text-slate-500 mt-0.5">Login needs your password <b>and</b> a 6-digit code from your phone. Strongly recommended for the admin account.</p>
+        </div>
+        <span id="otpStatusBadge" class="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-500">Checking…</span>
+      </div>
+      <div id="otpOffBox" class="hidden mt-4">
+        <button onclick="startOtpSetup()" class="btn-primary">Turn on 2-step login</button>
+      </div>
+      <div id="otpSetupBox" class="hidden mt-4 space-y-3 text-sm text-slate-700">
+        <p>1. Install <b>Google Authenticator</b> or <b>Microsoft Authenticator</b> on your phone.</p>
+        <p>2. In the app tap <b>+</b> &rarr; <b>Enter a setup key</b>, and type this key (time-based):</p>
+        <p class="font-mono text-base font-bold tracking-wider bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 break-all" id="otpSecret"></p>
+        <p class="text-xs"><a id="otpLink" class="text-blue-600 underline" href="#">Or tap here on your phone to add it automatically</a></p>
+        <p>3. Type the 6-digit code the app shows:</p>
+        <div class="flex gap-2">
+          <input id="otpEnableCode" inputmode="numeric" maxlength="6" class="border border-slate-300 rounded-lg px-3 py-2 w-32 font-mono" placeholder="123456" />
+          <button onclick="enableOtp()" class="btn-primary">Confirm</button>
+        </div>
+      </div>
+      <div id="otpOnBox" class="hidden mt-4 space-y-2">
+        <p class="text-xs text-slate-500">To turn it off, enter your password and a current code. Lost your phone? On the server run <code>python change_password.py</code>.</p>
+        <div class="flex gap-2 flex-wrap">
+          <input id="otpDisablePw" type="password" class="border border-slate-300 rounded-lg px-3 py-2" placeholder="Password" />
+          <input id="otpDisableCode" inputmode="numeric" maxlength="6" class="border border-slate-300 rounded-lg px-3 py-2 w-28 font-mono" placeholder="Code" />
+          <button onclick="disableOtp()" class="px-3 py-2 rounded-lg border border-red-300 text-red-600 text-sm font-semibold">Turn off</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Suspicious Activity -->
     <div class="bg-white rounded-2xl border border-slate-200 mb-5">
       <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
@@ -1878,7 +1911,7 @@ async function saveSetPassword() {
 }
 
 // ── SECURITY / AUDIT ─────────────────────────────────────────────────────────
-function loadSecurity() { loadSuspicious(false); loadAuditLogs(); }
+function loadSecurity() { loadSuspicious(false); loadAuditLogs(); loadOtpStatus(); }
 
 async function loadSuspicious(resolved = false) {
   // Update button styles
@@ -1980,6 +2013,56 @@ document.getElementById('confirmOkBtn').onclick = async () => {
 };
 
 // ── TOAST ─────────────────────────────────────────────────────────────────────
+// ── Two-step login (TOTP) ─────────────────────────────────────────────────────
+async function loadOtpStatus() {
+  try {
+    const res = await fetch(`${API}/api/auth/2fa/status`, { headers: hdr });
+    if (!res.ok) return;
+    const { enabled } = await res.json();
+    const badge = document.getElementById('otpStatusBadge');
+    badge.textContent = enabled ? 'On' : 'Off';
+    badge.className = 'text-xs font-semibold px-2.5 py-1 rounded-full ' +
+      (enabled ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700');
+    document.getElementById('otpOnBox').classList.toggle('hidden', !enabled);
+    document.getElementById('otpOffBox').classList.toggle('hidden', enabled);
+    document.getElementById('otpSetupBox').classList.add('hidden');
+  } catch (_) {}
+}
+
+async function startOtpSetup() {
+  const res  = await fetch(`${API}/api/auth/2fa/setup`, { method: 'POST', headers: hdr });
+  const data = await res.json();
+  if (!res.ok) { showToast(data.detail || 'Could not start setup', 'red'); return; }
+  document.getElementById('otpSecret').textContent = data.secret.match(/.{1,4}/g).join(' ');
+  document.getElementById('otpLink').href = data.otpauth;
+  document.getElementById('otpOffBox').classList.add('hidden');
+  document.getElementById('otpSetupBox').classList.remove('hidden');
+}
+
+function _useNewToken(token) {
+  // Turning 2-step on/off logs out other devices; keep this one signed in.
+  if (token) { localStorage.setItem('token', token); setTimeout(() => location.reload(), 1200); }
+}
+
+async function enableOtp() {
+  const code = document.getElementById('otpEnableCode').value.trim();
+  const res  = await fetch(`${API}/api/auth/2fa/enable`, { method: 'POST', headers: hdr, body: JSON.stringify({ code }) });
+  const data = await res.json();
+  if (!res.ok) { showToast(data.detail || 'Code not accepted', 'red'); return; }
+  showToast('2-step login is on', 'green');
+  _useNewToken(data.access_token);
+}
+
+async function disableOtp() {
+  const password = document.getElementById('otpDisablePw').value;
+  const code     = document.getElementById('otpDisableCode').value.trim();
+  const res  = await fetch(`${API}/api/auth/2fa/disable`, { method: 'POST', headers: hdr, body: JSON.stringify({ password, code }) });
+  const data = await res.json();
+  if (!res.ok) { showToast(data.detail || 'Could not turn off', 'red'); return; }
+  showToast('2-step login is off', 'green');
+  _useNewToken(data.access_token);
+}
+
 function showToast(msg, type = 'green') {
   const t = document.getElementById('toast');
   const styles = {

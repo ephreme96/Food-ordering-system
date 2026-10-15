@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -30,18 +31,27 @@ _INSECURE_DEFAULTS = {
     "",
 }
 
+def _looks_like_placeholder(value: str) -> bool:
+    """True for empty, short, or example values such as CHANGE_ME_... from .env.example."""
+    upper = value.strip().upper()
+    return (
+        value.strip().lower() in _INSECURE_DEFAULTS
+        or upper.startswith("CHANGE_ME")
+        or "YOUR" in upper
+        or len(value.strip()) < 32
+    )
+
+
 def _validate_env() -> None:
     """Fail fast if critical environment secrets are missing or insecure."""
-    secret_key = os.getenv("SECRET_KEY", "")
-    if secret_key in _INSECURE_DEFAULTS or len(secret_key) < 32:
+    if _looks_like_placeholder(os.getenv("SECRET_KEY", "")):
         raise RuntimeError(
-            "FATAL: SECRET_KEY is missing or insecure. "
+            "FATAL: SECRET_KEY is missing, too short or still the example value. "
             "Generate one: python -c \"import secrets; print(secrets.token_hex(64))\""
         )
-    hmac_secret = os.getenv("RECEIPT_HMAC_SECRET", "")
-    if hmac_secret in _INSECURE_DEFAULTS or len(hmac_secret) < 32:
+    if _looks_like_placeholder(os.getenv("RECEIPT_HMAC_SECRET", "")):
         raise RuntimeError(
-            "FATAL: RECEIPT_HMAC_SECRET is missing or insecure. "
+            "FATAL: RECEIPT_HMAC_SECRET is missing, too short or still the example value. "
             "Generate one: python -c \"import secrets; print(secrets.token_hex(32))\""
         )
 
@@ -145,6 +155,14 @@ def _seed_default_accounts(db: Session) -> None:
     created = []
     for username, email, password, role in accounts:
         if not db.query(User).filter(User.username == username).first():
+            # The fallback passwords above are public in this repo. Never use
+            # them (or anything weak) to create a live account.
+            if IS_PRODUCTION and (len(password) < 10 or password.endswith("@1234")):
+                logger.error(
+                    "NOT creating '%s': set a strong %s_DEFAULT_PASSWORD (10+ characters) in .env",
+                    username, role.value.upper(),
+                )
+                continue
             db.add(User(
                 username=username,
                 email=email,
@@ -576,6 +594,20 @@ async def lifespan(app: FastAPI):
     except Exception as _exc:
         logger.warning("Schema migration (cashier POS) skipped: %s", _exc)
 
+    # Users: session revocation + two-step login
+    try:
+        with engine.connect() as _conn:
+            _conn.execute(text("""
+                ALTER TABLE users
+                    ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0,
+                    ADD COLUMN IF NOT EXISTS totp_secret   VARCHAR(64),
+                    ADD COLUMN IF NOT EXISTS totp_enabled  BOOLEAN NOT NULL DEFAULT FALSE;
+            """))
+            _conn.commit()
+        logger.info("Schema migration (users security columns) complete.")
+    except Exception as _exc:
+        logger.warning("Schema migration (users security columns) skipped or failed: %s", _exc)
+
     # Order table: discount columns for promo code support
     try:
         with engine.connect() as _conn:
@@ -623,9 +655,15 @@ app = FastAPI(
 )
 
 # ── Rate limiting ────────────────────────────────────────────────────────────
+# default_limits only take effect through SlowAPIMiddleware; routes with their
+# own @limiter.limit(...) keep those stricter limits as well.
+# Behind a reverse proxy (Nginx, Cloudflare), start uvicorn with
+# --proxy-headers --forwarded-allow-ips=<proxy IP> so each visitor gets their
+# own limit instead of everyone sharing the proxy's IP (see start_production.sh).
 limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 # ── Security headers ─────────────────────────────────────────────────────────
 # Must be added BEFORE CORS so headers appear on all responses including preflight.

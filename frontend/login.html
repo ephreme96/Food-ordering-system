@@ -174,6 +174,12 @@
             </button>
           </div>
         </div>
+        <div id="otpBlock" class="hidden">
+          <label class="block text-sm font-medium mb-2" style="color: rgba(255,255,255,0.6);">2-step code</label>
+          <input id="otp" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code"
+            class="glass-input w-full px-4 py-3 rounded-xl tracking-widest"
+            placeholder="6-digit code from your authenticator app" />
+        </div>
         <div class="pt-2">
           <button type="submit" id="submitBtn" class="btn-signin w-full py-3.5 rounded-xl flex items-center justify-center gap-2 cursor-pointer text-base">
             <span id="btnText" data-i18n="btn.signin">Sign In</span>
@@ -295,17 +301,25 @@
 
     const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value;
+    const otp      = document.getElementById('otp').value.trim() || null;
 
     try {
       const res = await fetch(`${API}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, otp }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
+        if (data.detail === 'OTP_REQUIRED') {
+          // Password was right; this account also needs its 2-step code.
+          document.getElementById('otpBlock').classList.remove('hidden');
+          document.getElementById('otp').focus();
+          showError('Enter the 6-digit code from your authenticator app.');
+          return;
+        }
         showError(data.detail || t('err.login'));
         return;
       }

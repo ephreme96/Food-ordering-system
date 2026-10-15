@@ -143,7 +143,12 @@ def verify_callback(payload: dict) -> bool:
     """
     if _SANDBOX:
         return True
-    received_sign = payload.get("sign", "")
+    if not _APP_KEY:
+        # Security: with no key, an "HMAC" is made with an empty secret that
+        # anyone can reproduce. Refuse instead of accepting forged callbacks.
+        logger.error("Telebirr callback rejected: TELEBIRR_APP_KEY is not set")
+        return False
+    received_sign = str(payload.get("sign", ""))
     expected_sign = _sign({k: v for k, v in payload.items() if k != "sign"})
     return hmac.compare_digest(expected_sign, received_sign.upper())
 

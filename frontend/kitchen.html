@@ -721,6 +721,8 @@ async function submitChangePw() {
     const data = await res.json();
     if (res.ok) {
       closeChangePwModal();
+      // Other devices are logged out; keep this one signed in with the new token.
+      if (data.access_token) { localStorage.setItem('token', data.access_token); setTimeout(() => location.reload(), 1500); }
       // Brief success flash
       const flash = document.createElement('div');
       flash.textContent = 'Password updated!';

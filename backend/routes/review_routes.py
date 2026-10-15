@@ -113,7 +113,7 @@ def create_review(
         rating        = body.rating,
         comment       = body.comment.strip() if body.comment else None,
         order_number  = body.order_number.strip().upper() if body.order_number else None,
-        is_approved   = True,
+        is_approved   = False,   # hidden until an admin approves it
         edit_token    = token,
     )
     db.add(review)
@@ -137,7 +137,7 @@ def update_review(
 ):
     """
     Customer edits their own review using the edit_token returned at creation.
-    Editing resets approval to True (re-publishes it).
+    Editing hides the review again until an admin re-approves it.
     """
     review = db.query(Review).filter(
         Review.id         == review_id,
@@ -150,7 +150,7 @@ def update_review(
     review.rating        = body.rating
     review.comment       = body.comment.strip() if body.comment else None
     review.order_number  = body.order_number.strip().upper() if body.order_number else None
-    review.is_approved   = True   # re-approve after edit
+    review.is_approved   = False  # edited reviews need approval again
     db.commit()
     db.refresh(review)
     logger.info("Review id=%d updated by customer", review.id)

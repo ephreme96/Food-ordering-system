@@ -61,6 +61,7 @@ class UserCreate(BaseModel):
 class UserLogin(BaseModel):
     username: str
     password: str
+    otp:      Optional[str] = None   # 6-digit two-step code, when enabled for the account
 
     @field_validator("username")
     @classmethod

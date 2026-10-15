@@ -16,7 +16,7 @@ load_dotenv()
 
 from database import SessionLocal
 from models import User
-from auth import get_password_hash
+from auth import get_password_hash, revoke_sessions
 
 # ── Accounts you can manage ───────────────────────────────────────────────────
 MANAGED_ACCOUNTS = {
@@ -63,6 +63,13 @@ def main():
             sys.exit(1)
 
         user.password_hash = get_password_hash(new_pass)
+        revoke_sessions(user)  # log out every device still using the old password
+        if user.totp_enabled:
+            answer = input("This account has 2-step login on. Turn it off too (lost phone)? [y/N]: ")
+            if answer.strip().lower() == "y":
+                user.totp_enabled = False
+                user.totp_secret  = None
+                print("2-step login turned off. Set it up again from the admin panel.")
         db.commit()
         print(f"\nPassword for '{username}' ({user.role.value}) updated successfully.")
         print("The change takes effect immediately — no restart needed.\n")
