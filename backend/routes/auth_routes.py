@@ -5,7 +5,7 @@ import time
 from collections import defaultdict
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
@@ -13,11 +13,13 @@ from sqlalchemy.orm import Session
 import totp
 from auth import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
+    clear_session_cookie,
     create_access_token,
     get_current_user,
     get_password_hash,
     require_role,
     revoke_sessions,
+    set_session_cookie,
     verify_password,
 )
 from database import get_db
@@ -36,6 +38,7 @@ _LOCKOUT_MAX_ATTEMPTS  = 10   # allow 10 failures before lockout
 _LOCKOUT_WINDOW        = 300  # within a 5-minute window
 _LOCKOUT_DURATION      = 900  # lock out for 15 minutes after too many failures
 _failed_attempts: dict = defaultdict(list)  # { username: [unix_timestamp, ...] }
+_locked_until:    dict = {}                 # { username: unix_timestamp the lock ends }
 
 # Security: bcrypt dummy hash used for timing-safe login checks.
 # Without this, an attacker can tell if a username exists by measuring response
@@ -48,30 +51,40 @@ _DUMMY_HASH = _hash_fn("timing-equalizer-dummy-password")
 
 
 def _check_account_lockout(username: str) -> None:
-    """Raise 429 if this username has exceeded failed login attempts."""
+    """Raise 429 while this username is locked out."""
     now = time.time()
-    # Purge attempts older than the window
-    _failed_attempts[username] = [
-        t for t in _failed_attempts[username] if now - t < _LOCKOUT_WINDOW
-    ]
-    if len(_failed_attempts[username]) >= _LOCKOUT_MAX_ATTEMPTS:
-        wait = int(_LOCKOUT_DURATION - (now - min(_failed_attempts[username])))
-        logger.warning("Account '%s' locked out due to too many failed logins", username)
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Too many failed login attempts. Try again in {max(1, wait)} seconds.",
-        )
+    until = _locked_until.get(username)
+    if until is not None:
+        if now < until:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Too many failed login attempts. Try again in {max(1, int(until - now))} seconds.",
+            )
+        _locked_until.pop(username, None)
 
 
 def _record_failed_login(username: str) -> None:
-    """Record one failed attempt for this username."""
-    _failed_attempts[username].append(time.time())
+    """
+    Record one failed attempt. Too many inside the window starts a lockout that
+    lasts the full _LOCKOUT_DURATION, measured from the last failure (it used to
+    end as soon as the oldest failure aged out of the 5-minute window).
+    """
+    now = time.time()
+    attempts = [t for t in _failed_attempts[username] if now - t < _LOCKOUT_WINDOW]
+    attempts.append(now)
     logger.warning("Failed login attempt for username='%s'", username)
+    if len(attempts) >= _LOCKOUT_MAX_ATTEMPTS:
+        _locked_until[username] = now + _LOCKOUT_DURATION
+        _failed_attempts.pop(username, None)
+        logger.warning("Account '%s' locked out due to too many failed logins", username)
+    else:
+        _failed_attempts[username] = attempts
 
 
 def _clear_login_attempts(username: str) -> None:
     """Clear attempts after a successful login."""
     _failed_attempts.pop(username, None)
+    _locked_until.pop(username, None)
 
 
 OTP_REQUIRED = "OTP_REQUIRED"   # login.html shows the code field when it sees this
@@ -86,7 +99,7 @@ def _issue_token(user: User) -> str:
 
 @router.post("/login", response_model=Token)
 @limiter.limit("10/minute")  # Security: max 10 login attempts per IP per minute
-def login(request: Request, credentials: UserLogin, db: Session = Depends(get_db)):
+def login(request: Request, response: Response, credentials: UserLogin, db: Session = Depends(get_db)):
     """Authenticate staff and return a JWT. Rate-limited and lockout-protected."""
 
     # Security: check lockout BEFORE hitting the database or running bcrypt.
@@ -122,15 +135,25 @@ def login(request: Request, credentials: UserLogin, db: Session = Depends(get_db
     if user.totp_enabled:
         if not credentials.otp:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=OTP_REQUIRED)
-        if not totp.verify(user.totp_secret, credentials.otp):
+        if not totp.use_code(user, credentials.otp):
             _record_failed_login(lock_key)
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid 2-step code")
+        db.commit()   # saves the used code's time step (blocks replay)
 
     # Successful login — clear any recorded failures
     _clear_login_attempts(lock_key)
     logger.info("Successful login for user '%s' (role=%s)", user.username, user.role.value)
 
-    return {"access_token": _issue_token(user), "token_type": "bearer", "user": user}
+    token = _issue_token(user)
+    set_session_cookie(response, token)   # browsers use this HttpOnly cookie
+    return {"access_token": token, "token_type": "bearer", "user": user}
+
+
+@router.post("/logout")
+def logout(response: Response):
+    """Remove this browser's login cookie."""
+    clear_session_cookie(response)
+    return {"detail": "Logged out"}
 
 
 @router.post("/register", response_model=UserResponse, status_code=201)
@@ -189,6 +212,7 @@ class _SetPasswordBody(_BM):
 @limiter.limit("5/minute")
 def change_own_password(
     request:      Request,
+    response:     Response,
     body:         _ChangePasswordBody,
     db:           Session = Depends(get_db),
     current_user: User    = Depends(get_current_user),
@@ -209,7 +233,9 @@ def change_own_password(
     db.commit()
     logger.info("User '%s' changed their own password", current_user.username)
     # A fresh token so this device stays logged in.
-    return {"detail": "Password updated successfully", "access_token": _issue_token(current_user)}
+    token = _issue_token(current_user)
+    set_session_cookie(response, token)
+    return {"detail": "Password updated successfully", "access_token": token}
 
 
 @router.patch("/users/{user_id}/set-password", status_code=200)
@@ -262,7 +288,8 @@ def otp_setup(
     if current_user.totp_enabled:
         raise HTTPException(status_code=400, detail="2-step login is already on. Turn it off first.")
     secret = totp.generate_secret()
-    current_user.totp_secret = secret
+    current_user.totp_secret    = secret
+    current_user.totp_last_step = None
     db.commit()
     issuer = os.getenv("RESTAURANT_NAME", "Food Ordering")
     return {
@@ -275,6 +302,7 @@ def otp_setup(
 @limiter.limit("5/minute")
 def otp_enable(
     request:      Request,
+    response:     Response,
     body:         _OtpBody,
     db:           Session = Depends(get_db),
     current_user: User    = Depends(get_current_user),
@@ -282,19 +310,22 @@ def otp_enable(
     """Finish setup by proving the authenticator app shows the right code."""
     if not current_user.totp_secret:
         raise HTTPException(status_code=400, detail="Start setup first.")
-    if not totp.verify(current_user.totp_secret, body.code):
+    if not totp.use_code(current_user, body.code):
         raise HTTPException(status_code=400, detail="That code is not correct. Check the time on your phone and try again.")
     current_user.totp_enabled = True
     revoke_sessions(current_user)
     db.commit()
     logger.info("User '%s' turned on 2-step login", current_user.username)
-    return {"enabled": True, "access_token": _issue_token(current_user)}
+    token = _issue_token(current_user)
+    set_session_cookie(response, token)
+    return {"enabled": True, "access_token": token}
 
 
 @router.post("/2fa/disable")
 @limiter.limit("5/minute")
 def otp_disable(
     request:      Request,
+    response:     Response,
     body:         _DisableOtpBody,
     db:           Session = Depends(get_db),
     current_user: User    = Depends(get_current_user),
@@ -303,11 +334,14 @@ def otp_disable(
     if not current_user.totp_enabled:
         return {"enabled": False}
     if not verify_password(body.password, current_user.password_hash) or \
-            not totp.verify(current_user.totp_secret, body.code):
+            not totp.use_code(current_user, body.code):
         raise HTTPException(status_code=400, detail="Password or code is not correct.")
-    current_user.totp_enabled = False
-    current_user.totp_secret  = None
+    current_user.totp_enabled   = False
+    current_user.totp_secret    = None
+    current_user.totp_last_step = None
     revoke_sessions(current_user)
     db.commit()
     logger.info("User '%s' turned off 2-step login", current_user.username)
-    return {"enabled": False, "access_token": _issue_token(current_user)}
+    token = _issue_token(current_user)
+    set_session_cookie(response, token)
+    return {"enabled": False, "access_token": token}
