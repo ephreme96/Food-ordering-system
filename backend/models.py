@@ -91,6 +91,8 @@ class User(Base):
     # asks for a code once totp_enabled is True.
     totp_secret   = Column(String(64), nullable=True)
     totp_enabled  = Column(Boolean, default=False, nullable=False, server_default="false")
+    # Time step of the last 2-step code accepted; older or equal codes are refused.
+    totp_last_step = Column(BigInteger, nullable=True)
     created_at    = Column(DateTime(timezone=True), server_default=func.now())
     updated_at    = Column(DateTime(timezone=True), onupdate=func.now())
 
@@ -254,6 +256,9 @@ class RewardClaim(Base):
     identifier   = Column(String(255))                   # phone or email (denormalised)
     is_fulfilled = Column(Boolean, default=False, nullable=False, index=True)
     fulfilled_at = Column(DateTime(timezone=True))
+    # Set when an admin cancels the claim or it expires uncollected; the reward's
+    # stock is given back and the reserved points are freed.
+    cancelled_at = Column(DateTime(timezone=True), nullable=True)
     created_at   = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
 

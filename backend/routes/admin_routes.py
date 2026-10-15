@@ -801,6 +801,9 @@ def get_reward_claims(
 ):
     """Admin: list reward claims. Filter by fulfilled status."""
     from models import RewardClaim
+    from routes.loyalty_routes import expire_stale_claims
+    if expire_stale_claims(db):
+        db.commit()
     q = db.query(RewardClaim).order_by(RewardClaim.created_at.desc())
     if fulfilled is not None:
         q = q.filter(RewardClaim.is_fulfilled == fulfilled)
@@ -814,6 +817,7 @@ def get_reward_claims(
             "identifier":   c.identifier,
             "is_fulfilled": c.is_fulfilled,
             "fulfilled_at": c.fulfilled_at.isoformat() if c.fulfilled_at else None,
+            "cancelled_at": c.cancelled_at.isoformat() if c.cancelled_at else None,
             "created_at":   c.created_at.isoformat() if c.created_at else "",
         }
         for c in claims
@@ -838,6 +842,8 @@ def fulfill_claim(
         raise HTTPException(404, "Claim not found.")
     if claim.is_fulfilled:
         raise HTTPException(400, "This reward was already handed over.")
+    if claim.cancelled_at:
+        raise HTTPException(400, "This claim was cancelled or expired. Ask the customer to claim again.")
     acc = db.query(LoyaltyAccount).filter(LoyaltyAccount.id == claim.account_id).first()
     if not acc or acc.points_balance < claim.points_spent:
         raise HTTPException(400, "Customer no longer has enough points for this reward.")
@@ -853,3 +859,24 @@ def fulfill_claim(
     claim.fulfilled_at = datetime.now(timezone.utc)
     db.commit()
     return {"id": claim_id, "is_fulfilled": True}
+
+
+@router.patch("/rewards/claims/{claim_id}/cancel")
+def cancel_reward_claim(
+    claim_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_role(UserRole.admin)),
+):
+    """Admin: cancel a claim that won't be collected. Gives the reward unit back to stock."""
+    from models import RewardClaim
+    from routes.loyalty_routes import cancel_claim
+    claim = db.query(RewardClaim).filter(RewardClaim.id == claim_id).first()
+    if not claim:
+        raise HTTPException(404, "Claim not found.")
+    if claim.is_fulfilled:
+        raise HTTPException(400, "This reward was already handed over.")
+    if claim.cancelled_at:
+        return {"id": claim_id, "cancelled": True}
+    cancel_claim(claim, db)
+    db.commit()
+    return {"id": claim_id, "cancelled": True}
