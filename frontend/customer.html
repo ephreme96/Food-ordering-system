@@ -81,34 +81,102 @@
       box-shadow: 0 1px 12px rgba(0,0,0,.08);
     }
 
-    /* ── Category pills ────────────────────────────────────────── */
+    /* ── Category filter chips ─────────────────────────────────── */
+    #categoryBar {
+      scroll-padding-inline: 16px;
+      -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+              mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+    }
     .cat-btn {
-      transition: all .2s ease;
-      cursor: pointer;
-      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: .45rem;
+      min-height: 44px;
+      padding: 0 1rem;
+      border: 1px solid #EFEAE3;
+      background: #fff;
+      color: #4B4743;
+      font-size: .875rem;
       font-weight: 600;
+      white-space: nowrap;
       border-radius: 999px;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background .2s ease, color .2s ease, border-color .2s ease, box-shadow .2s ease;
+    }
+    .cat-btn .cat-count {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 1.4rem; height: 1.4rem; padding: 0 .4rem;
+      border-radius: 999px;
+      background: #F6F2EC; color: #8A8480;
+      font-size: .7rem; font-weight: 700;
     }
     .cat-btn.active {
       background: #C8102E;
-      color: white;
+      color: #fff;
       border-color: #C8102E;
-      box-shadow: 0 4px 14px rgba(200,16,46,.28);
+      box-shadow: 0 4px 14px rgba(200,16,46,.25);
     }
-    .cat-btn:not(.active):hover {
-      border-color: #C8102E;
-      color: #C8102E;
+    .cat-btn.active .cat-count { background: rgba(255,255,255,.22); color: #fff; }
+    .cat-btn:focus-visible,
+    .menu-card button:focus-visible,
+    #mobileCartBar button:focus-visible {
+      outline: 3px solid #D4A017;
+      outline-offset: 2px;
+    }
+    @media (hover:hover) {
+      .cat-btn:not(.active):hover { border-color: #C8102E; color: #C8102E; }
     }
 
     /* ── Menu card ─────────────────────────────────────────────── */
     .menu-card {
+      border: 1px solid #EFEAE3;
+      box-shadow: 0 6px 16px rgba(0,0,0,.04);
       transition: transform .22s cubic-bezier(.16,1,.3,1), box-shadow .22s ease;
-      cursor: default;
     }
-    .menu-card:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 20px 48px rgba(0,0,0,.12);
+    @media (hover:hover) {
+      .menu-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 18px 40px rgba(0,0,0,.10);
+      }
+      .menu-card:hover .menu-card-img { transform: scale(1.04); }
     }
+    .menu-card-img { transition: transform .4s cubic-bezier(.16,1,.3,1); }
+    .line-clamp-2 {
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+
+    /* ── Qty stepper on cards ──────────────────────────────────── */
+    .qty-btn {
+      width: 44px; height: 44px;
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 999px; cursor: pointer;
+      transition: background .15s ease, transform .15s ease;
+    }
+    .qty-btn:active { transform: scale(.94); }
+    @media (max-width: 639px) { .qty-btn { width: 40px; height: 40px; } }
+    .qty-btn.add  { background: #C8102E; color: #fff; box-shadow: 0 4px 12px rgba(200,16,46,.28); }
+    .qty-btn.sub  { background: #fff; color: #111; border: 1px solid #EFEAE3; }
+    @media (hover:hover) {
+      .qty-btn.add:hover { background: #A00D24; }
+      .qty-btn.sub:hover { background: #F6F2EC; }
+    }
+
+    /* ── Mobile cart bar ───────────────────────────────────────── */
+    #mobileCartBar {
+      padding: .75rem 1rem calc(.75rem + env(safe-area-inset-bottom));
+      background: linear-gradient(to top, #FFFDF8 70%, rgba(255,253,248,0));
+      transform: translateY(110%);
+      transition: transform .3s cubic-bezier(.16,1,.3,1);
+    }
+    #mobileCartBar.show { transform: translateY(0); }
+    @media (max-width: 639px) {
+      body.has-cartbar { padding-bottom: 84px; }
+      body.has-cartbar #toast,
+      body.has-cartbar #paymentReturnBanner { bottom: calc(88px + env(safe-area-inset-bottom)); }
+    }
+    @keyframes cartBump { 0%{transform:scale(1)} 40%{transform:scale(1.18)} 100%{transform:scale(1)} }
+    .cart-bump { animation: cartBump .35s ease; }
 
     /* ── Cart ──────────────────────────────────────────────────── */
     #cartPanel { transition: transform .35s cubic-bezier(.16,1,.3,1); }
@@ -279,12 +347,12 @@
       </button>
       <a href="/frontend/login.html" class="hidden sm:inline-flex items-center text-sm font-medium px-3 py-1.5 rounded-lg transition-colors" style="color:rgba(255,255,255,.7);" id="staffLoginLink" data-i18n="nav.staff_login">Staff Login</a>
       <!-- Cart button -->
-      <button onclick="toggleCart()" class="btn relative flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm text-white" style="background:#C8102E; box-shadow:0 4px 16px rgba(200,16,46,.3);">
+      <button id="navCartBtn" type="button" onclick="toggleCart()" aria-label="Open cart" class="btn relative flex items-center justify-center gap-2 min-w-[44px] min-h-[44px] px-3 sm:px-4 py-2.5 rounded-xl font-bold text-sm text-white" style="background:#C8102E; box-shadow:0 4px 16px rgba(200,16,46,.3);">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
         </svg>
         <span class="hidden sm:inline" data-i18n="nav.cart">Cart</span>
-        <span id="cartBadge" class="hidden absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center text-white" style="background:#D4A017;">0</span>
+        <span id="cartBadge" class="hidden absolute -top-1.5 -right-1.5 min-w-[1.25rem] h-5 px-1 rounded-full text-xs font-bold flex items-center justify-center" style="background:#D4A017; color:#111; box-shadow:0 0 0 2px #FFFDF8;">0</span>
       </button>
     </div>
   </div>
@@ -365,34 +433,35 @@
 <!-- ══════════════════════════════════════════════════════════════════════════ -->
 <!-- MENU SECTION                                                              -->
 <!-- ══════════════════════════════════════════════════════════════════════════ -->
-<section id="menu" class="max-w-6xl mx-auto px-4 sm:px-6 pt-10 pb-16">
-  <div class="flex items-end justify-between mb-6">
+<section id="menu" class="max-w-6xl mx-auto px-4 sm:px-6 pt-8 sm:pt-10 pb-16" aria-labelledby="menuHeading">
+  <div class="flex items-end justify-between gap-4 mb-3 sm:mb-5">
     <div>
       <p class="text-xs font-bold uppercase tracking-widest mb-1" style="color:#C8102E;" data-i18n="menu.eyebrow">Our Menu</p>
-      <h2 class="font-display font-bold text-ink" style="font-size:clamp(1.6rem,3vw,2.4rem);" data-i18n="menu.heading">Pick Your Favourites</h2>
+      <h2 id="menuHeading" class="font-display font-bold text-ink" style="font-size:clamp(1.6rem,3vw,2.4rem);" data-i18n="menu.heading">Pick Your Favourites</h2>
     </div>
-    <p class="text-sm text-gray-400 hidden sm:block" id="menuItemCount"></p>
+    <p class="text-sm font-medium pb-1" style="color:#8A8480;" id="menuItemCount" aria-live="polite"></p>
   </div>
 
-  <!-- Sticky category bar -->
-  <div class="sticky top-[64px] z-20 -mx-4 px-4 sm:-mx-6 sm:px-6 py-3 mb-6 scrollbar-hide" style="background:#FFFDF8;">
-    <div id="categoryBar" class="flex gap-2 overflow-x-auto scrollbar-hide">
-      <button class="cat-btn active px-4 py-2 border border-gray-200 bg-white text-sm text-gray-600" data-cat="" data-i18n="menu.all">
-        All Items
+  <!-- Sticky category filters -->
+  <div class="sticky top-[76px] z-20 -mx-4 sm:-mx-6 py-2.5 mb-5" style="background:#FFFDF8;">
+    <div id="categoryBar" class="flex gap-2 overflow-x-auto scrollbar-hide px-4 sm:px-6" role="toolbar" aria-label="Menu categories">
+      <button type="button" class="cat-btn active" data-cat="" aria-pressed="true">
+        <span data-i18n="menu.all">All Items</span>
+        <span class="cat-count" id="catCountAll"></span>
       </button>
     </div>
   </div>
 
   <!-- Loading skeletons -->
-  <div id="loadingSkeleton" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-    <div class="skeleton rounded-2xl h-64"></div>
-    <div class="skeleton rounded-2xl h-64"></div>
-    <div class="skeleton rounded-2xl h-64"></div>
-    <div class="skeleton rounded-2xl h-64"></div>
+  <div id="loadingSkeleton" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5" aria-hidden="true">
+    <div class="skeleton rounded-2xl h-32 sm:h-80"></div>
+    <div class="skeleton rounded-2xl h-32 sm:h-80"></div>
+    <div class="skeleton rounded-2xl h-32 sm:h-80"></div>
+    <div class="skeleton rounded-2xl h-32 sm:h-80"></div>
   </div>
 
   <!-- Menu Grid -->
-  <div id="menuGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"></div>
+  <div id="menuGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5"></div>
 </section>
 
 <!-- ══════════════════════════════════════════════════════════════════════════ -->
@@ -476,10 +545,25 @@
 </footer>
 
 <!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- MOBILE CART BAR (phones only, shown once the cart has items)             -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div id="mobileCartBar" class="sm:hidden fixed bottom-0 inset-x-0 z-30" aria-hidden="true">
+  <button type="button" onclick="toggleCart()" tabindex="-1"
+    class="btn w-full flex items-center justify-between gap-3 pl-3 pr-4 py-3 rounded-2xl text-white"
+    style="background:#C8102E; box-shadow:0 10px 28px rgba(200,16,46,.35); min-height:56px;">
+    <span class="flex items-center gap-2.5">
+      <span id="mobileCartCount" class="min-w-[2rem] h-8 px-2 rounded-xl flex items-center justify-center text-sm font-bold" style="background:rgba(255,255,255,.2);">0</span>
+      <span class="font-bold text-sm" data-i18n="cartbar.view">View cart</span>
+    </span>
+    <span id="mobileCartTotal" class="font-bold text-sm">ETB 0.00</span>
+  </button>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
 <!-- CART SIDE PANEL                                                           -->
 <!-- ══════════════════════════════════════════════════════════════════════════ -->
 <div id="cartOverlay" onclick="toggleCart()" class="hidden fixed inset-0 z-40" style="background:rgba(0,0,0,.5); backdrop-filter:blur(4px);"></div>
-<div id="cartPanel" class="fixed top-0 right-0 h-full w-full max-w-sm z-50 flex flex-col translate-x-full shadow-2xl" style="background:#FFFDF8;">
+<div id="cartPanel" role="dialog" aria-label="Your cart" class="fixed top-0 right-0 h-full w-full max-w-sm z-50 flex flex-col translate-x-full shadow-2xl" style="background:#FFFDF8;">
   <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
     <div>
       <h2 class="font-display font-bold text-ink text-lg" data-i18n="cart.title">Your Cart</h2>
@@ -1057,67 +1141,99 @@ async function loadMenu() {
     renderCategoryBar(cats);
     renderMenuGrid(menu);
     document.getElementById('loadingSkeleton').remove();
-    document.getElementById('menuItemCount').textContent = `${menu.length} items`;
+    updateMenuCount(menu.length);
   } catch (e) {
     document.getElementById('loadingSkeleton').innerHTML =
       '<p class="col-span-4 text-center text-red-500 py-10 text-sm">Could not load menu. Is the server running?</p>';
   }
 }
 
+let activeCategory = '';
+
+function updateMenuCount(n) {
+  document.getElementById('menuItemCount').textContent = t('menu.items_count', { n });
+}
+
 function renderCategoryBar(cats) {
   const bar = document.getElementById('categoryBar');
+  document.getElementById('catCountAll').textContent = menu.length;
   cats.forEach(cat => {
+    const count = menu.filter(i => i.category === cat).length;
     const btn = document.createElement('button');
-    btn.className = 'cat-btn px-4 py-2 border border-gray-200 bg-white text-sm text-gray-600';
+    btn.type = 'button';
+    btn.className = 'cat-btn';
     btn.dataset.cat = cat;
-    btn.textContent = cat;
+    btn.setAttribute('aria-pressed', 'false');
+    btn.innerHTML = `<span>${escHtml(cat)}</span><span class="cat-count">${count}</span>`;
     btn.onclick = () => filterCategory(cat, btn);
     bar.appendChild(btn);
   });
 }
 
 function filterCategory(cat, clickedBtn) {
-  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
-  clickedBtn.classList.add('active');
+  activeCategory = cat;
+  document.querySelectorAll('.cat-btn').forEach(b => {
+    const on = b === clickedBtn;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  // Keep the chosen chip visible on small screens
+  clickedBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
   const filtered = cat ? menu.filter(i => i.category === cat) : menu;
   renderMenuGrid(filtered);
-  document.getElementById('menuItemCount').textContent = `${filtered.length} items`;
+  updateMenuCount(filtered.length);
+  // If the user has scrolled past the top of the grid, bring it back into view
+  const section = document.getElementById('menu');
+  const grid = document.getElementById('menuGrid');
+  if (grid.getBoundingClientRect().top < 0) {
+    window.scrollTo({ top: section.offsetTop + 40, behavior: 'smooth' });
+  }
 }
+
+const ICON_PLUS  = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m7-7H5"/></svg>';
+const ICON_MINUS = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 12H5"/></svg>';
 
 function renderMenuGrid(items) {
   const grid = document.getElementById('menuGrid');
   grid.innerHTML = '';
   if (!items.length) {
-    grid.innerHTML = '<p class="col-span-4 text-center text-gray-400 py-12 text-sm">No items in this category.</p>';
+    grid.innerHTML = `<p class="col-span-full text-center py-12 text-sm" style="color:#8A8480;">${escHtml(t('menu.empty'))}</p>`;
     return;
   }
   items.forEach((item, idx) => {
     const inCart         = getItemTotalQty(item.id);
     const hasIngredients = item.ingredients && item.ingredients.length > 0;
-    const card           = document.createElement('div');
-    card.className = 'menu-card bg-white rounded-2xl overflow-hidden border border-gray-100 fade-in';
+    const name           = escHtml(item.name);
+    const card           = document.createElement('article');
+    card.className = 'menu-card bg-white rounded-2xl overflow-hidden fade-in flex sm:flex-col';
     card.style.animationDelay = Math.min(idx * 40, 280) + 'ms';
 
     const imgBg = getItemGradient(item.category);
 
     card.innerHTML = `
-      <div class="relative h-44 overflow-hidden flex items-center justify-center cursor-pointer" style="background:${imgBg};" onclick="openIngredientModal(${item.id})">
+      <button type="button" onclick="openIngredientModal(${item.id})" aria-label="${escHtml(t('menu.view_item', { name: item.name }))}"
+        class="order-2 sm:order-1 relative flex-shrink-0 w-24 h-24 m-3 ml-0 sm:m-0 sm:w-full sm:h-44 rounded-xl sm:rounded-none overflow-hidden flex items-center justify-center cursor-pointer"
+        style="background:${imgBg};">
         ${item.image_url
-          ? `<img src="${escHtml(item.image_url)}" alt="${escHtml(item.name)}" class="w-full h-full object-cover" loading="lazy"/>`
-          : `<div class="opacity-30">${getCategoryIcon(item.category)}</div>`
+          ? `<img src="${escHtml(item.image_url)}" alt="" class="menu-card-img w-full h-full object-cover" loading="lazy" onerror="this.remove()"/>`
+          : `<span class="menu-card-img opacity-30 scale-75 sm:scale-100">${getCategoryIcon(item.category)}</span>`
         }
-        <span class="absolute top-3 left-3 text-xs font-bold px-2.5 py-1 rounded-full" style="background:rgba(0,0,0,.45); color:rgba(255,255,255,.9); backdrop-filter:blur(8px);">${escHtml(item.category)}</span>
-        ${hasIngredients ? '<span class="absolute top-3 right-3 text-xs font-bold px-2 py-0.5 rounded-full" style="background:rgba(212,160,23,.85); color:#111;">Customize</span>' : ''}
-      </div>
-      <div class="p-4 cursor-pointer" onclick="openIngredientModal(${item.id})">
-        <h3 class="font-bold text-gray-900 text-sm leading-snug mb-1">${escHtml(item.name)}</h3>
-        <p class="text-xs text-gray-400 mb-3 leading-relaxed" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${escHtml(item.description||'')}</p>
-        <div class="flex items-center justify-between" onclick="event.stopPropagation()">
-          <div>
-            <span class="font-display font-bold text-base" style="color:#C8102E;">ETB ${item.price.toFixed(2)}</span>
-            <p class="text-xs text-gray-400">+${Math.floor(item.price/10)} pts</p>
+      </button>
+      <div class="order-1 sm:order-2 flex-1 min-w-0 p-3.5 sm:p-4 flex flex-col">
+        <div class="flex items-center gap-2 mb-1 min-w-0">
+          <span class="text-[11px] font-bold uppercase tracking-wider truncate" style="color:#8A8480;">${escHtml(item.category)}</span>
+          ${hasIngredients ? `<span class="flex-shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-full" style="background:#FBF3DC; color:#7A5B0C;">${escHtml(t('menu.customizable'))}</span>` : ''}
+        </div>
+        <h3 class="font-bold text-[15px] leading-snug mb-1" style="color:#111;">
+          <button type="button" onclick="openIngredientModal(${item.id})" class="text-left cursor-pointer hover:underline decoration-2 underline-offset-2">${name}</button>
+        </h3>
+        <p class="line-clamp-2 text-[13px] leading-relaxed mb-3" style="color:#6B6560;">${escHtml(item.description||'')}</p>
+        <div class="mt-auto flex items-end justify-between gap-2">
+          <div class="min-w-0">
+            <p class="font-display font-bold text-base sm:text-lg leading-tight whitespace-nowrap" style="color:#C8102E;">ETB ${item.price.toFixed(2)}</p>
+            <p class="text-xs" style="color:#8A8480;">+${Math.floor(item.price/10)} ${escHtml(t('menu.pts_suffix'))}</p>
           </div>
-          <div class="flex items-center gap-2" id="cartCtrl_${item.id}">
+          <div class="flex items-center gap-1 flex-shrink-0" id="cartCtrl_${item.id}">
             ${renderCartControl(item.id, inCart)}
           </div>
         </div>
@@ -1129,18 +1245,18 @@ function renderMenuGrid(items) {
 
 function renderCartControl(id, qty) {
   const item = menu.find(i => i.id === id);
-  const hasIngredients = item && item.ingredients && item.ingredients.length > 0;
+  const label = item ? item.name : '';
   // Always open modal on + so customers can pick customizations or just confirm qty
   const addAction = `openIngredientModal(${id})`;
 
   if (qty > 0) {
     return `
-      <button onclick="event.stopPropagation(); changeQty(${id},-1)" class="btn w-8 h-8 rounded-full border border-gray-200 text-gray-600 font-bold flex items-center justify-center hover:bg-gray-50 text-lg">−</button>
-      <span class="w-5 text-center text-sm font-bold text-gray-900">${qty}</span>
-      <button onclick="event.stopPropagation(); ${addAction}" class="btn w-8 h-8 rounded-full text-white font-bold flex items-center justify-center text-lg" style="background:#C8102E;">+</button>
+      <button type="button" onclick="event.stopPropagation(); changeQty(${id},-1)" class="qty-btn sub" aria-label="${escHtml(t('menu.remove_one', { name: label }))}">${ICON_MINUS}</button>
+      <span class="w-6 text-center text-sm font-bold" style="color:#111;" aria-live="polite">${qty}</span>
+      <button type="button" onclick="event.stopPropagation(); ${addAction}" class="qty-btn add" aria-label="${escHtml(t('menu.add_item', { name: label }))}">${ICON_PLUS}</button>
     `;
   }
-  return `<button onclick="event.stopPropagation(); ${addAction}" class="btn w-8 h-8 rounded-full text-white font-bold flex items-center justify-center text-lg" style="background:#C8102E;">+</button>`;
+  return `<button type="button" onclick="event.stopPropagation(); ${addAction}" class="qty-btn add" aria-label="${escHtml(t('menu.add_item', { name: label }))}">${ICON_PLUS}</button>`;
 }
 
 // ── Cart helpers ──────────────────────────────────────────────────────────────
@@ -1213,8 +1329,24 @@ function renderCart() {
   const count   = entries.reduce((s, e) => s + e.qty, 0);
   const pts     = Math.floor(total / 10);
 
-  document.getElementById('cartBadge').textContent = count;
-  document.getElementById('cartBadge').classList.toggle('hidden', count === 0);
+  const badge = document.getElementById('cartBadge');
+  const prevCount = Number(badge.textContent) || 0;
+  badge.textContent = count;
+  badge.classList.toggle('hidden', count === 0);
+  document.getElementById('navCartBtn').setAttribute('aria-label', t('cartbar.aria', { n: count }));
+  if (count > prevCount) {
+    badge.classList.remove('cart-bump');
+    void badge.offsetWidth;
+    badge.classList.add('cart-bump');
+  }
+  // Mobile bottom cart bar
+  const bar = document.getElementById('mobileCartBar');
+  bar.classList.toggle('show', count > 0);
+  bar.setAttribute('aria-hidden', count > 0 ? 'false' : 'true');
+  bar.querySelector('button').tabIndex = count > 0 ? 0 : -1;
+  document.body.classList.toggle('has-cartbar', count > 0);
+  document.getElementById('mobileCartCount').textContent = count;
+  document.getElementById('mobileCartTotal').textContent = `ETB ${total.toFixed(2)}`;
   document.getElementById('checkoutBtn').disabled = count === 0;
   document.getElementById('cartTotal').textContent = `ETB ${total.toFixed(2)}`;
   document.getElementById('cartPointsPreview').textContent = count > 0 ? t('cart.earn_preview', { pts }) : '';
@@ -1701,10 +1833,11 @@ function addToCartFromModal() {
     };
   }
 
+  const addedName = ingModalItem.name;  // closeIngredientModal() clears ingModalItem
   renderCart();
   updateMenuCardQty(ingModalItem.id);
   closeIngredientModal();
-  showToast(`${ingModalItem.name} added to cart!`, 'green');
+  showToast(`${addedName} added to cart!`, 'green');
 }
 
 // ── Loyalty ───────────────────────────────────────────────────────────────────
@@ -2187,6 +2320,14 @@ const TRANSLATIONS = {
     'menu.heading':       'Pick Your Favourites',
     'menu.all':           'All Items',
     'menu.pts_suffix':    'pts',
+    'menu.items_count':   '{n} items',
+    'menu.empty':         'No items in this category yet.',
+    'menu.customizable':  'Customizable',
+    'menu.view_item':     'View {name}',
+    'menu.add_item':      'Add {name} to cart',
+    'menu.remove_one':    'Remove one {name}',
+    'cartbar.view':       'View cart',
+    'cartbar.aria':       'Open cart, {n} items',
     // How it works
     'how.eyebrow':        'Simple & Fast',
     'how.heading':        'How It Works',
@@ -2327,6 +2468,14 @@ const TRANSLATIONS = {
     'menu.heading':       'ተወዳጆቻቸውን ይምረጡ',
     'menu.all':           'ሁሉም',
     'menu.pts_suffix':    'ነጥብ',
+    'menu.items_count':   '{n} ምግቦች',
+    'menu.empty':         'በዚህ ምድብ ውስጥ ገና ምግብ የለም።',
+    'menu.customizable':  'ማስተካከል ይቻላል',
+    'menu.view_item':     '{name} ይመልከቱ',
+    'menu.add_item':      '{name} ወደ ጋሪ ያክሉ',
+    'menu.remove_one':    'አንድ {name} ይቀንሱ',
+    'cartbar.view':       'ጋሪ ይመልከቱ',
+    'cartbar.aria':       'ጋሪ ይክፈቱ፣ {n} ምግቦች',
     // How it works
     'how.eyebrow':        'ቀላልና ፈጣን',
     'how.heading':        'እንዴት ይሰራል',
@@ -2516,6 +2665,13 @@ function setLanguage(lang) {
   currentLang = lang;
   localStorage.setItem('lang', lang);
   applyTranslations();
+  // Re-render menu cards so their labels follow the new language
+  if (menu.length) {
+    const shown = activeCategory ? menu.filter(i => i.category === activeCategory) : menu;
+    renderMenuGrid(shown);
+    updateMenuCount(shown.length);
+    renderCart();
+  }
 }
 
 init();
