@@ -324,7 +324,9 @@
         return;
       }
 
-      localStorage.setItem('token', data.access_token);
+      // The server put the login in an HttpOnly cookie that page scripts can't
+      // read. Only the non-secret profile (name, role) is kept here for the UI.
+      localStorage.removeItem('token');
       localStorage.setItem('user', JSON.stringify(data.user));
 
       const role = data.user.role;

@@ -13,6 +13,14 @@ DATABASE_URL = os.getenv(
     "postgresql://postgres:password@localhost:5432/food_ordering"
 )
 
+# SQLAlchemy 2.1+ reads a bare "postgresql://" URL as the psycopg 3 driver, but
+# this project installs psycopg2 (requirements.txt). Name the driver explicitly
+# so a fresh install works without editing .env.
+if DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = "postgresql+psycopg2://" + DATABASE_URL[len("postgresql://"):]
+elif DATABASE_URL.startswith("postgres://"):  # Heroku/Render-style alias
+    DATABASE_URL = "postgresql+psycopg2://" + DATABASE_URL[len("postgres://"):]
+
 engine = create_engine(
     DATABASE_URL,
     pool_pre_ping=True,

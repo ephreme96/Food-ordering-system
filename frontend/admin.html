@@ -254,9 +254,9 @@
 
 <script>
   (function(){
-    const token = localStorage.getItem('token');
+    localStorage.removeItem('token');  // old versions kept the login token here; it now lives in an HttpOnly cookie
     const user  = JSON.parse(localStorage.getItem('user') || 'null');
-    if (!token || !user || user.role !== 'admin') {
+    if (!user || user.role !== 'admin') {
       window.location.href = '/frontend/login.html';
     }
   })();
@@ -1217,8 +1217,9 @@ function setLanguage(lang) {
 
 // ── MAIN ─────────────────────────────────────────────────────────────────────
 const API    = window.location.origin;
-const TOKEN  = localStorage.getItem('token');
-const hdr    = { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
+// The login itself travels in an HttpOnly cookie the browser sends automatically;
+// page scripts can't read it, so an injected script can't steal it.
+const hdr    = { 'Content-Type': 'application/json' };
 
 let allMenuItems  = [];
 let adminRewards  = [];
@@ -2041,7 +2042,8 @@ async function startOtpSetup() {
 
 function _useNewToken(token) {
   // Turning 2-step on/off logs out other devices; keep this one signed in.
-  if (token) { localStorage.setItem('token', token); setTimeout(() => location.reload(), 1200); }
+  // The server already put the new login in this browser's cookie.
+  if (token) setTimeout(() => location.reload(), 1200);
 }
 
 async function enableOtp() {
@@ -2092,7 +2094,7 @@ function escHtml(s) {
 function logout() {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
-  window.location.href = '/frontend/login.html';
+  fetch('/api/auth/logout', { method: 'POST' }).finally(() => { window.location.href = '/frontend/login.html'; });
 }
 
 // ── REVIEWS MANAGEMENT ───────────────────────────────────────────────────────
@@ -2484,14 +2486,15 @@ async function loadAdminClaims() {
         <td class="px-4 py-3.5 text-slate-600 text-sm hidden md:table-cell">${c.points_spent} pts</td>
         <td class="px-4 py-3.5 text-slate-400 text-xs hidden md:table-cell">${date}</td>
         <td class="px-4 py-3.5">
-          <span class="badge ${c.is_fulfilled ? 'text-slate-500' : 'text-green-700'}" style="background:${c.is_fulfilled ? '#f1f5f9' : '#dcfce7'};">
-            ${c.is_fulfilled ? 'Fulfilled' : 'Pending'}
+          <span class="badge ${c.is_fulfilled || c.cancelled_at ? 'text-slate-500' : 'text-green-700'}" style="background:${c.is_fulfilled || c.cancelled_at ? '#f1f5f9' : '#dcfce7'};">
+            ${c.is_fulfilled ? 'Fulfilled' : c.cancelled_at ? 'Cancelled' : 'Pending'}
           </span>
         </td>
         <td class="px-4 py-3.5">
-          ${!c.is_fulfilled
-            ? `<button onclick="fulfillClaim(${c.id},this)" class="text-xs font-semibold text-white px-3 py-1.5 rounded-lg transition cursor-pointer" style="background:#C8102E;">Mark Fulfilled</button>`
-            : `<span class="text-xs text-slate-300">${c.fulfilled_at ? new Date(c.fulfilled_at).toLocaleDateString() : 'Done'}</span>`
+          ${!c.is_fulfilled && !c.cancelled_at
+            ? `<button onclick="fulfillClaim(${c.id},this)" class="text-xs font-semibold text-white px-3 py-1.5 rounded-lg transition cursor-pointer" style="background:#C8102E;">Mark Fulfilled</button>
+               <button onclick="cancelClaim(${c.id},this)" class="text-xs font-semibold text-slate-500 px-3 py-1.5 rounded-lg transition cursor-pointer" style="background:#f1f5f9;">Cancel</button>`
+            : `<span class="text-xs text-slate-300">${c.fulfilled_at ? new Date(c.fulfilled_at).toLocaleDateString() : c.cancelled_at ? new Date(c.cancelled_at).toLocaleDateString() : 'Done'}</span>`
           }
         </td>
       </tr>`;
@@ -2517,6 +2520,25 @@ async function fulfillClaim(id, btn) {
   } catch(e) {
     showToast('Network error', 'red');
     btn.disabled = false; btn.textContent = 'Mark Fulfilled';
+  }
+}
+
+async function cancelClaim(id, btn) {
+  if (!confirm('Cancel this claim? The reward goes back into stock and the customer keeps their points.')) return;
+  btn.disabled = true;
+  try {
+    const res = await fetch(`${API}/api/admin/rewards/claims/${id}/cancel`, { method:'PATCH', headers: hdr });
+    if (res.ok) {
+      loadAdminClaims();
+      showToast('Claim cancelled', 'green');
+    } else {
+      const d = await res.json();
+      showToast(d.detail || 'Failed to cancel claim', 'red');
+      btn.disabled = false;
+    }
+  } catch(e) {
+    showToast('Network error', 'red');
+    btn.disabled = false;
   }
 }
 

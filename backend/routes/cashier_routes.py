@@ -702,8 +702,15 @@ def cash_flow(
         )
         .all()
     )
-    total_refunds  = round(sum(r.amount for r in refunds), 2)
-    refund_count   = len(refunds)
+    # Only approved (processed) refunds take money off the day's total. Refunds
+    # still waiting for admin approval are shown separately so a cashier's
+    # unapproved refund can't make the till look short or the net look lower.
+    processed      = [r for r in refunds if r.status == RefundStatus.processed]
+    pending        = [r for r in refunds if r.status == RefundStatus.pending]
+    total_refunds  = round(sum(r.amount for r in processed), 2)
+    refund_count   = len(processed)
+    pending_refunds_total = round(sum(r.amount for r in pending), 2)
+    pending_refund_count  = len(pending)
     net_revenue    = round(gross_revenue - total_refunds, 2)
 
     # Average order value
@@ -721,6 +728,8 @@ def cash_flow(
         "handover_count": handover_count,
         "avg_order_value":avg_order,
         "refund_count":   refund_count,
+        "pending_refunds_total": pending_refunds_total,
+        "pending_refund_count":  pending_refund_count,
         "by_method":      [
             {"method": m, "total": method_totals[m], "count": method_counts[m]}
             for m in method_totals

@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 from contextlib import asynccontextmanager
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
@@ -123,6 +124,38 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             )
 
         return response
+
+
+# ─── Cross-site request check for the login cookie ───────────────────────────
+# Security: staff pages log in with an HttpOnly cookie (auth.py). A browser
+# attaches cookies automatically, so a change request (POST/PUT/PATCH/DELETE)
+# that arrives with the cookie must come from this site's own pages, not from
+# another website the staff member happens to have open. SameSite=Strict on the
+# cookie already blocks this in modern browsers; this check is the backstop.
+_UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+
+
+class CookieCsrfMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app, trusted_origins):
+        super().__init__(app)
+        self.trusted = {o.rstrip("/") for o in trusted_origins if o}
+
+    async def dispatch(self, request: Request, call_next):
+        from auth import SESSION_COOKIE_NAME
+        if (
+            request.method in _UNSAFE_METHODS
+            and SESSION_COOKIE_NAME in request.cookies
+            and "authorization" not in request.headers
+        ):
+            origin = request.headers.get("origin")
+            if origin and origin != "null":
+                same_site = urlparse(origin).netloc == request.headers.get("host", "")
+                if not same_site and origin.rstrip("/") not in self.trusted:
+                    logger.warning("Blocked cross-site %s %s from %s", request.method, request.url.path, origin)
+                    return JSONResponse({"detail": "Cross-site request blocked"}, status_code=403)
+            elif origin == "null":
+                return JSONResponse({"detail": "Cross-site request blocked"}, status_code=403)
+        return await call_next(request)
 
 
 # ─── Default Data Seeding ─────────────────────────────────────────────────────
@@ -472,6 +505,7 @@ async def lifespan(app: FastAPI):
                 );
                 CREATE INDEX IF NOT EXISTS ix_reward_claims_account  ON reward_claims(account_id);
                 CREATE INDEX IF NOT EXISTS ix_reward_claims_fulfilled ON reward_claims(is_fulfilled);
+                ALTER TABLE reward_claims ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ;
             """))
             _conn.commit()
         logger.info("Schema migration (loyalty v2 + rewards) complete.")
@@ -601,7 +635,8 @@ async def lifespan(app: FastAPI):
                 ALTER TABLE users
                     ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0,
                     ADD COLUMN IF NOT EXISTS totp_secret   VARCHAR(64),
-                    ADD COLUMN IF NOT EXISTS totp_enabled  BOOLEAN NOT NULL DEFAULT FALSE;
+                    ADD COLUMN IF NOT EXISTS totp_enabled  BOOLEAN NOT NULL DEFAULT FALSE,
+                    ADD COLUMN IF NOT EXISTS totp_last_step BIGINT;
             """))
             _conn.commit()
         logger.info("Schema migration (users security columns) complete.")
@@ -671,6 +706,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 
 # ── CORS ─────────────────────────────────────────────────────────────────────
 _origins = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:8000").split(",")]
+app.add_middleware(CookieCsrfMiddleware, trusted_origins=_origins)
 app.add_middleware(
     CORSMiddleware,
     allow_origins     = _origins,
@@ -718,12 +754,25 @@ WS_AUTH_TIMEOUT_SECONDS = 5
 
 
 async def _ws_authenticate(websocket: WebSocket, *roles: UserRole) -> bool:
+    from auth import SESSION_COOKIE_NAME
     await websocket.accept()
-    try:
-        token = await asyncio.wait_for(websocket.receive_text(), WS_AUTH_TIMEOUT_SECONDS)
-    except (asyncio.TimeoutError, WebSocketDisconnect):
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        return False
+    # Staff pages: the browser sends the HttpOnly login cookie with the
+    # connection. Only accept it from this site's own pages, so another website
+    # can't open a feed using a staff member's cookie.
+    token = websocket.cookies.get(SESSION_COOKIE_NAME)
+    if token:
+        origin = websocket.headers.get("origin")
+        if origin and urlparse(origin).netloc != websocket.headers.get("host", "") \
+                and origin.rstrip("/") not in {o.rstrip("/") for o in _origins}:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return False
+    else:
+        # Other clients (scripts, tests, a native app) send the token as the first message.
+        try:
+            token = await asyncio.wait_for(websocket.receive_text(), WS_AUTH_TIMEOUT_SECONDS)
+        except (asyncio.TimeoutError, WebSocketDisconnect):
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return False
 
     db = SessionLocal()
     try:

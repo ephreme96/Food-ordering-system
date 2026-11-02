@@ -8,8 +8,9 @@ Rules:
 """
 from __future__ import annotations
 import logging
+import os
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -28,6 +29,9 @@ limiter = Limiter(key_func=get_remote_address)
 # ── Constants ─────────────────────────────────────────────────────────────────
 ETB_PER_POINT = 10        # 10 ETB = 1 point (points are awarded in order_paid.py)
 MAX_PENDING_CLAIMS = 3    # uncollected rewards allowed per customer
+# A claim not collected at the counter within this many days is cancelled and
+# its reward unit goes back into stock. Set CLAIM_EXPIRY_DAYS in .env to change.
+CLAIM_EXPIRY_DAYS = int(os.getenv("CLAIM_EXPIRY_DAYS", "7"))
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -114,6 +118,34 @@ def _next_reward_pts(balance: int, db: Session) -> int:
     return 0   # 0 means already enough for all rewards (or no rewards defined)
 
 
+def cancel_claim(claim: RewardClaim, db: Session) -> None:
+    """Cancel an uncollected claim and give its unit back to the reward's stock."""
+    claim.cancelled_at = datetime.now(timezone.utc)
+    if claim.reward_id:
+        reward = db.query(RewardItem).filter(RewardItem.id == claim.reward_id).first()
+        if reward and reward.quantity_claimed > 0:
+            reward.quantity_claimed -= 1
+
+
+def expire_stale_claims(db: Session) -> int:
+    """
+    Cancel claims left uncollected for CLAIM_EXPIRY_DAYS. Called before stock or
+    pending claims are read, so limited rewards can't be held forever by
+    claims nobody collects. The caller commits.
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(days=CLAIM_EXPIRY_DAYS)
+    stale = db.query(RewardClaim).filter(
+        RewardClaim.is_fulfilled == False,
+        RewardClaim.cancelled_at == None,
+        RewardClaim.created_at < cutoff,
+    ).all()
+    for c in stale:
+        cancel_claim(c, db)
+    if stale:
+        logger.info("Expired %d uncollected reward claim(s)", len(stale))
+    return len(stale)
+
+
 def _make_claim_code() -> str:
     return "RWD-" + secrets.token_hex(3).upper()
 
@@ -181,6 +213,8 @@ def list_rewards(
 ):
     """Return active rewards from the catalog. Optionally pass identifier to compute can_claim."""
     now = datetime.now(timezone.utc)
+    if expire_stale_claims(db):
+        db.commit()
     rewards = (
         db.query(RewardItem)
         .filter(
@@ -229,6 +263,7 @@ def claim_reward(
 ):
     """Claim a reward from the catalog. Deducts points and returns a claim code."""
     now = datetime.now(timezone.utc)
+    expire_stale_claims(db)
     reward = db.query(RewardItem).filter(
         RewardItem.id       == reward_id,
         RewardItem.is_active == True,
@@ -249,6 +284,7 @@ def claim_reward(
     pending = db.query(RewardClaim).filter(
         RewardClaim.account_id   == acc.id,
         RewardClaim.is_fulfilled == False,
+        RewardClaim.cancelled_at == None,
     ).all()
     if len(pending) >= MAX_PENDING_CLAIMS:
         raise HTTPException(400, "You already have rewards waiting to be collected. Collect them at the counter first.")
@@ -294,7 +330,13 @@ def get_history(
     identifier: str = Query(..., min_length=3, max_length=255),
     db: Session = Depends(get_db),
 ):
-    """Return the last 20 point transactions for a phone number or email."""
+    """
+    Return the last 20 point transactions for a phone number or email.
+
+    Security: no login is needed here, so anyone who knows a customer's phone
+    number can call it. Only points, type and date are returned. Order numbers
+    (which open the order-tracking page) and amounts spent are left out.
+    """
     norm = _normalize(identifier)
     if _is_email(norm):
         acc = db.query(LoyaltyAccount).filter(LoyaltyAccount.email == norm).first()
@@ -313,8 +355,8 @@ def get_history(
         {
             "type":        t.txn_type,
             "points":      t.points,
-            "description": t.description,
-            "order_number": t.order_number,
+            "description": "Points from an order" if t.txn_type == "earn" else "Reward collected",
+            "order_number": None,   # kept for older app versions; never filled publicly
             "created_at":  t.created_at.isoformat() if t.created_at else None,
         }
         for t in txns

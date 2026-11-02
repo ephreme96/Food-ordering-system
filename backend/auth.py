@@ -3,7 +3,7 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordBearer
 import jwt
 from jwt import InvalidTokenError as JWTError
@@ -24,7 +24,39 @@ ALGORITHM  = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 
 pwd_context   = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+# auto_error=False: a request may carry the login in the session cookie instead
+# of an Authorization header (see get_current_user).
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
+
+# ─── Session cookie ───────────────────────────────────────────────────────────
+# Security: the staff web pages keep their login in an HttpOnly cookie, which
+# page JavaScript cannot read. A script injected by an XSS bug can no longer copy
+# the token and use it from the attacker's own computer (it could from
+# localStorage). SameSite=Strict means other websites can't make the browser
+# send it. Secure (HTTPS-only) is on when HTTPS_ENABLED=true; override with
+# SESSION_COOKIE_SECURE=true/false.
+SESSION_COOKIE_NAME   = "staff_session"
+SESSION_COOKIE_SECURE = os.getenv(
+    "SESSION_COOKIE_SECURE", os.getenv("HTTPS_ENABLED", "false")
+).lower() == "true"
+
+
+def set_session_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        SESSION_COOKIE_NAME, token,
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        httponly=True,
+        secure=SESSION_COOKIE_SECURE,
+        samesite="strict",
+        path="/",
+    )
+
+
+def clear_session_cookie(response: Response) -> None:
+    response.delete_cookie(
+        SESSION_COOKIE_NAME, path="/", httponly=True,
+        secure=SESSION_COOKIE_SECURE, samesite="strict",
+    )
 
 
 # ─── Password helpers ─────────────────────────────────────────────────────────
@@ -76,10 +108,15 @@ def revoke_sessions(user: User) -> None:
 
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    request: Request,
+    token: Optional[str] = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ) -> User:
-    user = user_from_token(token, db)
+    # An Authorization header (scripts, tests, a future native app) is used on
+    # its own when present. Otherwise the browser's HttpOnly session cookie.
+    if not token:
+        token = request.cookies.get(SESSION_COOKIE_NAME)
+    user = user_from_token(token, db) if token else None
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

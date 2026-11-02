@@ -470,6 +470,18 @@ async def payment_status(
 
 # ─── Order Tracking (public) ─────────────────────────────────────────────────
 
+def _public_name(full_name: str | None) -> str:
+    """
+    First name plus last initial ("Abebe K."). The tracking link has no login,
+    so anyone who sees or guesses it must not learn the customer's full name.
+    """
+    parts = (full_name or "").split()
+    if not parts:
+        return "Customer"
+    first = parts[0][:30]
+    return f"{first} {parts[-1][0]}." if len(parts) > 1 else first
+
+
 @router.get("/orders/track/{order_number}")
 @limiter.limit("60/minute")
 async def track_order(
@@ -501,7 +513,7 @@ async def track_order(
 
     return {
         "order_number":   order.order_number,
-        "customer_name":  order.customer_name,
+        "customer_name":  _public_name(order.customer_name),
         "status":         order.status.value,
         "step":           step_map.get(order.status, 0),
         "total_amount":   order.total_amount,

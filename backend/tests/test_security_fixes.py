@@ -353,7 +353,11 @@ def test_two_step_login(client):
     no_code = client.post("/api/auth/login", json=creds)
     assert no_code.status_code == 401 and no_code.json()["detail"] == "OTP_REQUIRED"
     assert client.post("/api/auth/login", json={**creds, "otp": "123456"}).status_code == 401
-    ok = client.post("/api/auth/login", json={**creds, "otp": totp.current_code(secret)})
+    # The code used to turn 2-step on can't be used again (no replay), so log
+    # in with the next 30-second code, as a real user would.
+    import time
+    assert client.post("/api/auth/login", json={**creds, "otp": totp.current_code(secret)}).status_code == 401
+    ok = client.post("/api/auth/login", json={**creds, "otp": totp.current_code(secret, at=time.time() + 30)})
     assert ok.status_code == 200
 
 

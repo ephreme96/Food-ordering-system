@@ -100,9 +100,9 @@
 
 <script>
   (function(){
-    const token = localStorage.getItem('token');
+    localStorage.removeItem('token');  // old versions kept the login token here; it now lives in an HttpOnly cookie
     const user  = JSON.parse(localStorage.getItem('user') || 'null');
-    if (!token || !user || !['kitchen','admin'].includes(user.role)) {
+    if (!user || !['kitchen','admin'].includes(user.role)) {
       window.location.href = '/frontend/login.html';
     }
   })();
@@ -243,12 +243,12 @@
 
 <script>
 const API   = window.location.origin;
-const TOKEN = localStorage.getItem('token');
 let currentFilter = 'all';
 let refreshInterval;
 let orders = [];
 
-const headers = { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
+// Login travels in an HttpOnly cookie (sent automatically, unreadable by scripts).
+const headers = { 'Content-Type': 'application/json' };
 
 // ── Translations ──────────────────────────────────────────────────────────────
 const TRANSLATIONS = {
@@ -548,7 +548,7 @@ function formatTimer(secs) {
 }
 
 function escHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function logout() { localStorage.removeItem('token'); localStorage.removeItem('user'); clearInterval(refreshInterval); window.location.href = '/frontend/login.html'; }
+function logout() { localStorage.removeItem('token'); localStorage.removeItem('user'); clearInterval(refreshInterval); fetch('/api/auth/logout', { method: 'POST' }).finally(() => { window.location.href = '/frontend/login.html'; }); }
 
 // ── Per-card elapsed timers ───────────────────────────────────────────────────
 let timerInterval = null;
@@ -658,7 +658,7 @@ function connectKitchenWS() {
   ws = new WebSocket(`${proto}://${location.host}/ws/kitchen`);
 
   ws.onopen = () => {
-    ws.send(TOKEN);  // first message authenticates this staff session
+    // The browser sends the login cookie with the connection; no token message needed.
     console.log('[Kitchen WS] Connected');
     if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
     // Reduce polling interval when WS is active
@@ -722,7 +722,7 @@ async function submitChangePw() {
     if (res.ok) {
       closeChangePwModal();
       // Other devices are logged out; keep this one signed in with the new token.
-      if (data.access_token) { localStorage.setItem('token', data.access_token); setTimeout(() => location.reload(), 1500); }
+      if (data.access_token) setTimeout(() => location.reload(), 1500);  // server already set the new login cookie
       // Brief success flash
       const flash = document.createElement('div');
       flash.textContent = 'Password updated!';
